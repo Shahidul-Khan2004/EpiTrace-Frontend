@@ -27,6 +27,7 @@ export interface LoginPayload {
 export interface CreateMonitorPayload {
   name: string;
   url: string;
+  repo_link: string;
   method: HttpMethod;
   request_header?: Record<string, unknown>;
   request_body?: unknown;
@@ -38,6 +39,7 @@ export interface CreateMonitorPayload {
 export interface UpdateMonitorPayload {
   name?: string;
   url?: string;
+  repo_link?: string;
   method?: HttpMethod;
   request_header?: Record<string, unknown>;
   request_body?: unknown;
@@ -50,6 +52,7 @@ export interface Monitor {
   user_id: string;
   name: string;
   url: string;
+  repo_link: string;
   method: HttpMethod;
   request_header: Record<string, unknown>;
   request_body: unknown;

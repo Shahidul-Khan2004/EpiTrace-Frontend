@@ -219,7 +219,12 @@ export default function MonitorDetailsPage() {
                 {monitor.method}
               </span>
             </div>
-            <p className="break-all text-sm text-slate-600">{monitor.url}</p>
+            <p className="break-all text-sm text-slate-600">
+              <span className="font-medium text-slate-700">Target URL:</span> {monitor.url}
+            </p>
+            <p className="break-all text-sm text-slate-600">
+              <span className="font-medium text-slate-700">Repo Link:</span> {monitor.repo_link || "-"}
+            </p>
           </div>
 
           <MonitorActions

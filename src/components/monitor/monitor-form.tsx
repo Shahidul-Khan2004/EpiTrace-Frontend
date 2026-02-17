@@ -25,6 +25,7 @@ interface MonitorFormProps {
 interface MonitorFormState {
   name: string;
   url: string;
+  repoLink: string;
   method: HttpMethod;
   requestHeader: string;
   requestBody: string;
@@ -36,6 +37,7 @@ interface MonitorFormState {
 const defaultState: MonitorFormState = {
   name: "",
   url: "",
+  repoLink: "",
   method: "GET",
   requestHeader: "",
   requestBody: "",
@@ -52,6 +54,7 @@ function buildState(initialValues?: Partial<Monitor>): MonitorFormState {
   return {
     name: initialValues.name ?? "",
     url: initialValues.url ?? "",
+    repoLink: initialValues.repo_link ?? "",
     method: initialValues.method ?? "GET",
     requestHeader: prettifyJson(initialValues.request_header),
     requestBody: prettifyJson(initialValues.request_body),
@@ -98,6 +101,11 @@ export function MonitorForm({
       return;
     }
 
+    if (!state.repoLink.trim()) {
+      setErrorMessage("Repository link is required.");
+      return;
+    }
+
     if (!Number.isInteger(checkInterval) || checkInterval < 10) {
       setErrorMessage("Check interval must be an integer of at least 10 seconds.");
       return;
@@ -124,6 +132,7 @@ export function MonitorForm({
         await onSubmit({
           name: state.name,
           url: state.url,
+          repo_link: state.repoLink,
           method: state.method,
           request_header: normalizedHeaders,
           request_body: requestBody,
@@ -139,6 +148,7 @@ export function MonitorForm({
       await onSubmit({
         name: state.name,
         url: state.url,
+        repo_link: state.repoLink,
         method: state.method,
         request_header: normalizedHeaders,
         request_body: requestBody,
@@ -174,6 +184,15 @@ export function MonitorForm({
           value={state.url}
           onChange={(event) => updateField("url", event.target.value)}
           placeholder="https://example.com/health"
+          required
+        />
+
+        <Input
+          label="Repository Link"
+          type="url"
+          value={state.repoLink}
+          onChange={(event) => updateField("repoLink", event.target.value)}
+          placeholder="https://github.com/org/repository"
           required
         />
 

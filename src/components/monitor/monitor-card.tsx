@@ -38,7 +38,12 @@ export function MonitorCard({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold text-slate-900">{monitor.name}</h3>
-          <p className="max-w-2xl break-all text-sm text-slate-600">{monitor.url}</p>
+          <p className="max-w-2xl break-all text-sm text-slate-600">
+            <span className="font-medium text-slate-700">Target URL:</span> {monitor.url}
+          </p>
+          <p className="max-w-2xl break-all text-sm text-slate-600">
+            <span className="font-medium text-slate-700">Repo Link:</span> {monitor.repo_link || "-"}
+          </p>
         </div>
         <StatusPill isActive={monitor.is_active} status={monitor.status} />
       </div>
