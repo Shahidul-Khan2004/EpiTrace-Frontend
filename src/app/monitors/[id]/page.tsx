@@ -179,8 +179,12 @@ export default function MonitorDetailsPage() {
       >
         <div className="space-y-4 rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
           <p>Monitor not found or you do not have access.</p>
-          <Link href="/dashboard" className="font-semibold underline">
-            Return to dashboard
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-[9px] text-sm font-semibold text-slate-900 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+          >
+            <span aria-hidden>&larr;</span>
+            <span>Back to dashboard</span>
           </Link>
         </div>
       </AppShell>
@@ -194,15 +198,19 @@ export default function MonitorDetailsPage() {
       userEmail={session?.user.email}
       onLogout={logout}
     >
-      <div className="mb-4">
-        <Link href="/dashboard" className="text-sm font-medium text-slate-700 underline underline-offset-4">
-          Back to dashboard
+      <div className="mb-6">
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-[9px] text-sm font-semibold text-slate-900 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+        >
+          <span aria-hidden>&larr;</span>
+          <span>Back to dashboard</span>
         </Link>
       </div>
 
       {feedback ? <Alert message={feedback.message} tone={feedback.tone} /> : null}
 
-      <section className="mt-4 rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+      <section className="rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -211,7 +219,7 @@ export default function MonitorDetailsPage() {
                 {monitor.method}
               </span>
             </div>
-            <p className="text-sm text-slate-600">{monitor.url}</p>
+            <p className="break-all text-sm text-slate-600">{monitor.url}</p>
           </div>
 
           <MonitorActions
@@ -285,7 +293,7 @@ export default function MonitorDetailsPage() {
         </dl>
       </section>
 
-      <section className="mt-6 rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+      <section className="mt-6 rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-5">
         <h2 className="text-xl font-semibold text-slate-900">Update monitor</h2>
         <p className="mt-1 text-sm text-slate-600">
           Uses <code className="rounded bg-slate-100 px-1 py-0.5">PATCH /monitor/:id</code>.
@@ -311,7 +319,12 @@ export default function MonitorDetailsPage() {
             </p>
           </div>
 
-          <Button variant="secondary" onClick={() => void loadData()} loading={isLoading}>
+          <Button
+            variant="secondary"
+            onClick={() => void loadData()}
+            loading={isLoading}
+            className="w-full sm:w-auto"
+          >
             Refresh History
           </Button>
         </div>

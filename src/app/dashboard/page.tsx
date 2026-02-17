@@ -162,7 +162,7 @@ export default function DashboardPage() {
       onLogout={logout}
     >
       <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-        <section className="space-y-4 rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+        <section className="space-y-4 rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-xl font-semibold text-slate-900">Create monitor</h2>
@@ -175,7 +175,7 @@ export default function DashboardPage() {
           <MonitorForm mode="create" onSubmit={handleCreate} isSubmitting={isCreating} />
         </section>
 
-        <section className="grid grid-cols-2 gap-3 rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm sm:grid-cols-4">
+        <section className="grid grid-cols-2 gap-3 rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm sm:grid-cols-4 sm:p-5">
           <div className="rounded-2xl bg-slate-50 p-4">
             <p className="text-xs uppercase tracking-wide text-slate-500">Total</p>
             <p className="mt-2 text-2xl font-semibold text-slate-900">{monitorStats.total}</p>
@@ -201,7 +201,12 @@ export default function DashboardPage() {
             <h2 className="text-xl font-semibold text-slate-900">Monitor list</h2>
             <p className="text-sm text-slate-600">Includes start, pause, resume, delete, detail and history access.</p>
           </div>
-          <Button variant="secondary" onClick={() => void loadMonitors()} loading={isLoading}>
+          <Button
+            variant="secondary"
+            onClick={() => void loadMonitors()}
+            loading={isLoading}
+            className="w-full sm:w-auto"
+          >
             Refresh
           </Button>
         </div>

@@ -33,11 +33,12 @@ export function MonitorActions({
   const primaryAction = getPrimaryActionLabel(monitor);
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
       {primaryAction === "pause" ? (
         <Button
           variant="secondary"
           loading={pendingAction === "pause"}
+          className="w-full sm:w-auto"
           onClick={() => void onPause()}
         >
           Pause
@@ -46,6 +47,7 @@ export function MonitorActions({
         <Button
           variant="secondary"
           loading={pendingAction === "resume"}
+          className="w-full sm:w-auto"
           onClick={() => void onResume()}
         >
           Resume
@@ -54,13 +56,19 @@ export function MonitorActions({
         <Button
           variant="secondary"
           loading={pendingAction === "start"}
+          className="w-full sm:w-auto"
           onClick={() => void onStart()}
         >
           Start
         </Button>
       )}
 
-      <Button variant="danger" loading={pendingAction === "delete"} onClick={() => void onDelete()}>
+      <Button
+        variant="danger"
+        loading={pendingAction === "delete"}
+        className="w-full sm:w-auto"
+        onClick={() => void onDelete()}
+      >
         Delete
       </Button>
     </div>

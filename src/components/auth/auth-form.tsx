@@ -14,43 +14,45 @@ export function AuthForm({ mode }: AuthFormProps) {
   const { values, updateValue, submit, isSubmitting, errorMessage } = useAuthForm(mode);
 
   return (
-    <form className="space-y-4" onSubmit={submit}>
+    <form className="space-y-6" onSubmit={submit}>
       {errorMessage ? <Alert message={errorMessage} tone="error" /> : null}
 
-      <Input
-        label="Email"
-        type="email"
-        autoComplete="email"
-        value={values.email}
-        onChange={(event) => updateValue("email", event.target.value)}
-        required
-      />
-
-      <Input
-        label="Password"
-        type="password"
-        autoComplete={mode === "login" ? "current-password" : "new-password"}
-        value={values.password}
-        onChange={(event) => updateValue("password", event.target.value)}
-        required
-      />
-
-      {mode === "register" ? (
+      <div className="space-y-5">
         <Input
-          label="Confirm Password"
-          type="password"
-          autoComplete="new-password"
-          value={values.rePassword}
-          onChange={(event) => updateValue("rePassword", event.target.value)}
+          label="Email"
+          type="email"
+          autoComplete="email"
+          value={values.email}
+          onChange={(event) => updateValue("email", event.target.value)}
           required
         />
-      ) : null}
+
+        <Input
+          label="Password"
+          type="password"
+          autoComplete={mode === "login" ? "current-password" : "new-password"}
+          value={values.password}
+          onChange={(event) => updateValue("password", event.target.value)}
+          required
+        />
+
+        {mode === "register" ? (
+          <Input
+            label="Confirm Password"
+            type="password"
+            autoComplete="new-password"
+            value={values.rePassword}
+            onChange={(event) => updateValue("rePassword", event.target.value)}
+            required
+          />
+        ) : null}
+      </div>
 
       <Button className="w-full" loading={isSubmitting} type="submit">
         {mode === "register" ? "Create Account" : "Login"}
       </Button>
 
-      <p className="text-center text-sm text-slate-600">
+      <p className="pt-1 text-center text-sm text-slate-600">
         {mode === "register" ? "Already have an account?" : "Need an account?"} {" "}
         <Link
           href={mode === "register" ? "/login" : "/register"}

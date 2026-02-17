@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Manrope, Playfair_Display } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
@@ -16,6 +16,12 @@ const headingFont = Playfair_Display({
 export const metadata: Metadata = {
   title: "EpiTrace Frontend",
   description: "Monitor management UI for EpiTrace backend",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

@@ -34,11 +34,11 @@ export function MonitorCard({
   onOpen,
 }: MonitorCardProps) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold text-slate-900">{monitor.name}</h3>
-          <p className="max-w-2xl truncate text-sm text-slate-600">{monitor.url}</p>
+          <p className="max-w-2xl break-all text-sm text-slate-600">{monitor.url}</p>
         </div>
         <StatusPill isActive={monitor.is_active} status={monitor.status} />
       </div>
@@ -62,8 +62,8 @@ export function MonitorCard({
         </div>
       </dl>
 
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-        <Button variant="ghost" onClick={onOpen}>
+      <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <Button variant="ghost" onClick={onOpen} className="w-full sm:w-auto">
           View History
         </Button>
 
