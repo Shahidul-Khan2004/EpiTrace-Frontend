@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(167, 243, 208, 0.35), transparent 35%),
+    radial-gradient(circle at 85% 85%, rgba(186, 230, 253, 0.3), transparent 30%),
+    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  color: #0f172a;
+  font-family: var(--font-body), ui-sans-serif, system-ui;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading), ui-serif, Georgia;
+}
+
+::selection {
+  background: #0f172a;
+  color: #f8fafc;
+}
