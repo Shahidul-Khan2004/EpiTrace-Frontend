@@ -8,8 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { parseJsonField, prettifyJson } from "@/features/monitor/form-utils";
 import type {
   CreateMonitorPayload,
+  CreateWebhookPayload,
   HttpMethod,
   Monitor,
+  NotificationProvider,
   UpdateMonitorPayload,
 } from "@/types/api";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
@@ -17,16 +19,29 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 interface MonitorFormProps {
   mode: "create" | "update";
   initialValues?: Partial<Monitor>;
-  onSubmit: (payload: CreateMonitorPayload | UpdateMonitorPayload) => Promise<void>;
+  onSubmit: (payload: MonitorFormSubmission) => Promise<void>;
   isSubmitting?: boolean;
   submitLabel?: string;
 }
+
+export type MonitorFormSubmission =
+  | {
+      mode: "create";
+      monitor: CreateMonitorPayload;
+      webhook: CreateWebhookPayload;
+    }
+  | {
+      mode: "update";
+      monitor: UpdateMonitorPayload;
+    };
 
 interface MonitorFormState {
   name: string;
   url: string;
   repoLink: string;
   method: HttpMethod;
+  notificationProvider: NotificationProvider | "";
+  notificationWebhookUrl: string;
   requestHeader: string;
   requestBody: string;
   checkInterval: string;
@@ -34,17 +49,30 @@ interface MonitorFormState {
   isActive: boolean;
 }
 
+const notificationProviders: NotificationProvider[] = ["slack", "discord"];
+
 const defaultState: MonitorFormState = {
   name: "",
   url: "",
   repoLink: "",
   method: "GET",
+  notificationProvider: "",
+  notificationWebhookUrl: "",
   requestHeader: "",
   requestBody: "",
   checkInterval: "10",
   timeout: "5",
   isActive: false,
 };
+
+function isValidWebhookUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
 
 function buildState(initialValues?: Partial<Monitor>): MonitorFormState {
   if (!initialValues) {
@@ -56,6 +84,8 @@ function buildState(initialValues?: Partial<Monitor>): MonitorFormState {
     url: initialValues.url ?? "",
     repoLink: initialValues.repo_link ?? "",
     method: initialValues.method ?? "GET",
+    notificationProvider: "",
+    notificationWebhookUrl: "",
     requestHeader: prettifyJson(initialValues.request_header),
     requestBody: prettifyJson(initialValues.request_body),
     checkInterval: String(initialValues.check_interval ?? 10),
@@ -90,6 +120,8 @@ export function MonitorForm({
 
     const checkInterval = Number(state.checkInterval);
     const timeout = Number(state.timeout);
+    const notificationProvider = state.notificationProvider;
+    const notificationWebhookUrl = state.notificationWebhookUrl.trim();
 
     if (!state.name.trim()) {
       setErrorMessage("Name is required.");
@@ -116,6 +148,29 @@ export function MonitorForm({
       return;
     }
 
+    if (mode === "create" && !notificationProvider) {
+      setErrorMessage("Notification provider is required.");
+      return;
+    }
+
+    if (
+      notificationProvider &&
+      !notificationProviders.includes(notificationProvider as NotificationProvider)
+    ) {
+      setErrorMessage("Notification provider must be either slack or discord.");
+      return;
+    }
+
+    if (mode === "create" && !notificationWebhookUrl) {
+      setErrorMessage("Notification webhook URL is required.");
+      return;
+    }
+
+    if (notificationWebhookUrl && !isValidWebhookUrl(notificationWebhookUrl)) {
+      setErrorMessage("Notification webhook URL must be a valid URL.");
+      return;
+    }
+
     try {
       const requestHeader = parseJsonField(state.requestHeader, "Request headers");
       const requestBody = parseJsonField(state.requestBody, "Request body");
@@ -130,6 +185,31 @@ export function MonitorForm({
 
       if (mode === "create") {
         await onSubmit({
+          mode: "create",
+          monitor: {
+            name: state.name,
+            url: state.url,
+            repo_link: state.repoLink,
+            method: state.method,
+            request_header: normalizedHeaders,
+            request_body: requestBody,
+            check_interval: checkInterval,
+            timeout,
+            is_active: state.isActive,
+          },
+          webhook: {
+            provider: notificationProvider as NotificationProvider,
+            webhook_url: notificationWebhookUrl,
+          },
+        });
+
+        setState(defaultState);
+        return;
+      }
+
+      await onSubmit({
+        mode: "update",
+        monitor: {
           name: state.name,
           url: state.url,
           repo_link: state.repoLink,
@@ -138,22 +218,7 @@ export function MonitorForm({
           request_body: requestBody,
           check_interval: checkInterval,
           timeout,
-          is_active: state.isActive,
-        });
-
-        setState(defaultState);
-        return;
-      }
-
-      await onSubmit({
-        name: state.name,
-        url: state.url,
-        repo_link: state.repoLink,
-        method: state.method,
-        request_header: normalizedHeaders,
-        request_body: requestBody,
-        check_interval: checkInterval,
-        timeout,
+        },
       });
     } catch (error) {
       if (error instanceof Error) {
@@ -195,6 +260,34 @@ export function MonitorForm({
           placeholder="https://github.com/org/repository"
           required
         />
+
+        {mode === "create" ? (
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Select
+              label="Notification Provider"
+              value={state.notificationProvider}
+              onChange={(event) =>
+                updateField("notificationProvider", event.target.value as NotificationProvider | "")
+              }
+              required
+            >
+              <option value="" disabled>
+                Select a provider
+              </option>
+              <option value="slack">Slack</option>
+              <option value="discord">Discord</option>
+            </Select>
+
+            <Input
+              label="Notification Webhook URL"
+              type="url"
+              value={state.notificationWebhookUrl}
+              onChange={(event) => updateField("notificationWebhookUrl", event.target.value)}
+              placeholder="https://hooks.slack.com/services/XXX/YYY/ZZZ"
+              required
+            />
+          </div>
+        ) : null}
 
         <div className="grid gap-5 sm:grid-cols-2">
           <Select

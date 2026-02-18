@@ -1,4 +1,5 @@
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+export type NotificationProvider = "slack" | "discord";
 
 export interface User {
   id: string;
@@ -63,6 +64,34 @@ export interface Monitor {
   created_at: string;
   updated_at: string;
   last_checked_at: string | null;
+}
+
+export interface UserWebhook {
+  id: string;
+  user_id: string;
+  provider: NotificationProvider;
+  webhook_url: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateWebhookPayload {
+  provider: NotificationProvider;
+  webhook_url: string;
+}
+
+export interface UpdateWebhookPayload {
+  provider?: NotificationProvider;
+  webhook_url?: string;
+  is_active?: boolean;
+}
+
+export interface MonitorWebhookAssociation {
+  id: string;
+  monitor_id: string;
+  webhook_id: string;
+  created_at: string;
 }
 
 export interface MonitorCheck {

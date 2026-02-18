@@ -3,7 +3,7 @@
 import { Alert } from "@/components/feedback/alert";
 import { AppShell } from "@/components/layout/app-shell";
 import { MonitorCard } from "@/components/monitor/monitor-card";
-import { MonitorForm } from "@/components/monitor/monitor-form";
+import { MonitorForm, type MonitorFormSubmission } from "@/components/monitor/monitor-form";
 import { Button } from "@/components/ui/button";
 import {
   createMonitor,
@@ -13,9 +13,10 @@ import {
   resumeMonitor,
   startMonitor,
 } from "@/lib/api/monitor";
+import { addWebhookToMonitor, createWebhook, listUserWebhooks } from "@/lib/api/webhook";
 import { extractErrorMessage } from "@/lib/utils/error";
 import { useRequireAuth } from "@/features/auth/use-auth-guards";
-import type { CreateMonitorPayload, Monitor, UpdateMonitorPayload } from "@/types/api";
+import type { Monitor } from "@/types/api";
 import { ApiError } from "@/lib/api/client";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -122,8 +123,12 @@ export default function DashboardPage() {
   );
 
   const handleCreate = useCallback(
-    async (payload: CreateMonitorPayload | UpdateMonitorPayload) => {
+    async (payload: MonitorFormSubmission) => {
       if (!token) {
+        return;
+      }
+
+      if (payload.mode !== "create") {
         return;
       }
 
@@ -131,7 +136,31 @@ export default function DashboardPage() {
       setFeedback(null);
 
       try {
-        await createMonitor(token, payload as CreateMonitorPayload);
+        const normalizedWebhookUrl = payload.webhook.webhook_url.trim();
+        const existingWebhooks = await listUserWebhooks(token);
+
+        const matchedWebhook = existingWebhooks.find(
+          (webhook) =>
+            webhook.provider === payload.webhook.provider &&
+            webhook.webhook_url.trim() === normalizedWebhookUrl,
+        );
+
+        const webhook =
+          matchedWebhook ??
+          (await createWebhook(token, {
+            provider: payload.webhook.provider,
+            webhook_url: normalizedWebhookUrl,
+          }));
+
+        const monitor = await createMonitor(token, payload.monitor);
+
+        try {
+          await addWebhookToMonitor(token, monitor.id, webhook.id);
+        } catch (associationError) {
+          await deleteMonitor(token, monitor.id).catch(() => undefined);
+          throw associationError;
+        }
+
         setFeedback({ tone: "success", message: "Monitor created successfully." });
         await loadMonitors();
       } catch (error) {
@@ -167,7 +196,7 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-xl font-semibold text-slate-900">Create monitor</h2>
               <p className="text-sm text-slate-600">
-                All monitor fields map directly to your backend API contract.
+                A webhook is required when creating a monitor.
               </p>
             </div>
           </div>

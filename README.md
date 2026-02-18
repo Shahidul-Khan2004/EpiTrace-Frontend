@@ -17,6 +17,7 @@ Modern Next.js + Tailwind frontend for the EpiTrace backend APIs.
   - View monitor details
   - Update monitor
   - View monitor history report
+  - Manage user webhooks and link/unlink them per monitor
 - Added backend health indicator using `/health`.
 - Implemented reusable, modular architecture:
   - Shared API client with centralized error handling
@@ -40,6 +41,11 @@ All endpoints from `EPITRACE.postman_collection.json` are wired in UI:
 - `POST /monitor/pause/:id` -> pause action
 - `POST /monitor/resume/:id` -> resume action
 - `GET /monitor/:id/history` -> monitor history report
+- `POST /webhook` -> create webhook
+- `GET /webhook` -> list user webhooks
+- `GET /webhook/monitor/:monitorId` -> list monitor webhooks
+- `POST /webhook/monitor/:monitorId/add/:webhookId` -> attach webhook to monitor
+- `DELETE /webhook/monitor/:monitorId/remove/:webhookId` -> remove webhook from monitor
 
 ## Tech stack
 
