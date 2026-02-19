@@ -64,6 +64,7 @@ export interface Monitor {
   created_at: string;
   updated_at: string;
   last_checked_at: string | null;
+  github_token_id?: string | null;
 }
 
 export interface UserWebhook {
@@ -92,6 +93,30 @@ export interface MonitorWebhookAssociation {
   monitor_id: string;
   webhook_id: string;
   created_at: string;
+}
+
+export interface GithubToken {
+  id: string;
+  user_id?: string;
+  is_active: boolean;
+  token_last4: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateGithubTokenPayload {
+  access_token: string;
+}
+
+export interface UpdateGithubTokenPayload {
+  access_token?: string;
+  is_active?: boolean;
+}
+
+export interface MonitorGithubTokenAssociation {
+  monitor_id: string;
+  github_token_id: string;
+  created_at?: string;
 }
 
 export interface MonitorCheck {

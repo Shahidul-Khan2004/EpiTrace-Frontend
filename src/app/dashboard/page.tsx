@@ -5,6 +5,10 @@ import { AppShell } from "@/components/layout/app-shell";
 import { MonitorCard } from "@/components/monitor/monitor-card";
 import { MonitorForm, type MonitorFormSubmission } from "@/components/monitor/monitor-form";
 import { Button } from "@/components/ui/button";
+import { useRequireAuth } from "@/features/auth/use-auth-guards";
+import { GithubTokenError } from "@/features/github-token/errors";
+import { useGithubTokenStore } from "@/features/github-token/use-github-token-store";
+import { ApiError } from "@/lib/api/client";
 import {
   createMonitor,
   deleteMonitor,
@@ -15,9 +19,7 @@ import {
 } from "@/lib/api/monitor";
 import { addWebhookToMonitor, createWebhook, listUserWebhooks } from "@/lib/api/webhook";
 import { extractErrorMessage } from "@/lib/utils/error";
-import { useRequireAuth } from "@/features/auth/use-auth-guards";
 import type { Monitor } from "@/types/api";
-import { ApiError } from "@/lib/api/client";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -29,6 +31,12 @@ interface FeedbackState {
 export default function DashboardPage() {
   const router = useRouter();
   const { token, session, isReady, logout } = useRequireAuth();
+  const {
+    tokens: githubTokens,
+    createGithubToken,
+    fetchGithubTokens,
+    linkTokenToMonitor,
+  } = useGithubTokenStore();
 
   const [monitors, setMonitors] = useState<Monitor[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,7 +46,10 @@ export default function DashboardPage() {
 
   const handleAuthError = useCallback(
     (error: unknown) => {
-      if (error instanceof ApiError && error.status === 401) {
+      if (
+        (error instanceof ApiError || error instanceof GithubTokenError) &&
+        error.status === 401
+      ) {
         logout();
         return true;
       }
@@ -72,11 +83,31 @@ export default function DashboardPage() {
     }
   }, [handleAuthError, token]);
 
+  const loadGithubTokens = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+
+    try {
+      await fetchGithubTokens(token);
+    } catch (error) {
+      if (handleAuthError(error)) {
+        return;
+      }
+
+      setFeedback({
+        tone: "error",
+        message: extractErrorMessage(error),
+      });
+    }
+  }, [fetchGithubTokens, handleAuthError, token]);
+
   useEffect(() => {
     if (isReady && token) {
       void loadMonitors();
+      void loadGithubTokens();
     }
-  }, [isReady, loadMonitors, token]);
+  }, [isReady, loadGithubTokens, loadMonitors, token]);
 
   const monitorStats = useMemo(() => {
     return monitors.reduce(
@@ -96,6 +127,11 @@ export default function DashboardPage() {
       { total: 0, up: 0, down: 0, paused: 0 },
     );
   }, [monitors]);
+
+  const activeGithubTokens = useMemo(
+    () => githubTokens.filter((item) => item.is_active),
+    [githubTokens],
+  );
 
   const runMonitorAction = useCallback(
     async (monitorId: string, action: string, task: () => Promise<void>, successMessage: string) => {
@@ -161,7 +197,52 @@ export default function DashboardPage() {
           throw associationError;
         }
 
-        setFeedback({ tone: "success", message: "Monitor created successfully." });
+        let githubTokenIdToLink = payload.githubTokenId;
+
+        if (payload.newGithubTokenAccessToken) {
+          try {
+            const createdGithubToken = await createGithubToken(token, {
+              access_token: payload.newGithubTokenAccessToken,
+            });
+            githubTokenIdToLink = createdGithubToken.id;
+            await loadGithubTokens();
+          } catch (tokenCreationError) {
+            if (handleAuthError(tokenCreationError)) {
+              return;
+            }
+
+            setFeedback({
+              tone: "error",
+              message: `Monitor created, but GitHub token creation failed: ${extractErrorMessage(tokenCreationError)}`,
+            });
+            await loadMonitors();
+            return;
+          }
+        }
+
+        if (githubTokenIdToLink) {
+          try {
+            await linkTokenToMonitor(token, monitor.id, githubTokenIdToLink);
+          } catch (linkError) {
+            if (handleAuthError(linkError)) {
+              return;
+            }
+
+            setFeedback({
+              tone: "error",
+              message: `Monitor created, but token linking failed: ${extractErrorMessage(linkError)}`,
+            });
+            await loadMonitors();
+            return;
+          }
+        }
+
+        setFeedback({
+          tone: "success",
+          message: githubTokenIdToLink
+            ? "Monitor created and GitHub token linked successfully."
+            : "Monitor created successfully.",
+        });
         await loadMonitors();
       } catch (error) {
         if (handleAuthError(error)) {
@@ -176,7 +257,14 @@ export default function DashboardPage() {
         setIsCreating(false);
       }
     },
-    [handleAuthError, loadMonitors, token],
+    [
+      createGithubToken,
+      handleAuthError,
+      linkTokenToMonitor,
+      loadGithubTokens,
+      loadMonitors,
+      token,
+    ],
   );
 
   if (!isReady) {
@@ -196,12 +284,17 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-xl font-semibold text-slate-900">Create monitor</h2>
               <p className="text-sm text-slate-600">
-                A webhook is required when creating a monitor.
+                A webhook is required when creating a monitor. You can also link an existing GitHub token or create one inline.
               </p>
             </div>
           </div>
 
-          <MonitorForm mode="create" onSubmit={handleCreate} isSubmitting={isCreating} />
+          <MonitorForm
+            mode="create"
+            onSubmit={handleCreate}
+            isSubmitting={isCreating}
+            githubTokens={activeGithubTokens}
+          />
         </section>
 
         <section className="grid grid-cols-2 gap-3 rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm sm:grid-cols-4 sm:p-5">
@@ -232,7 +325,10 @@ export default function DashboardPage() {
           </div>
           <Button
             variant="secondary"
-            onClick={() => void loadMonitors()}
+            onClick={() => {
+              void loadMonitors();
+              void loadGithubTokens();
+            }}
             loading={isLoading}
             className="w-full sm:w-auto"
           >

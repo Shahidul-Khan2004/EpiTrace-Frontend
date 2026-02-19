@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useRequireAuth } from "@/features/auth/use-auth-guards";
+import { GithubTokenError } from "@/features/github-token/errors";
+import { useGithubTokenStore } from "@/features/github-token/use-github-token-store";
 import { ApiError } from "@/lib/api/client";
 import {
   deleteMonitor,
@@ -84,17 +86,43 @@ function isValidWebhookUrl(value: string): boolean {
   }
 }
 
+function maskGithubToken(last4: string): string {
+  return `****...${last4}`;
+}
+
+function resolveLinkedGithubTokenId(monitor: Monitor): string | null {
+  if (typeof monitor.github_token_id === "string" && monitor.github_token_id) {
+    return monitor.github_token_id;
+  }
+
+  const withGithubToken = monitor as Monitor & { github_token?: { id?: string | null } };
+  if (typeof withGithubToken.github_token?.id === "string" && withGithubToken.github_token.id) {
+    return withGithubToken.github_token.id;
+  }
+
+  return null;
+}
+
 export default function MonitorDetailsPage() {
   const router = useRouter();
   const params = useParams<{ id: string | string[] }>();
   const monitorId = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const { token, session, isReady, logout } = useRequireAuth();
+  const {
+    tokens: githubTokens,
+    fetchGithubTokens,
+    linkingMonitorId,
+    unlinkingMonitorId,
+    linkTokenToMonitor,
+    unlinkTokenFromMonitor,
+  } = useGithubTokenStore();
 
   const [monitor, setMonitor] = useState<Monitor | null>(null);
   const [history, setHistory] = useState<MonitorCheck[]>([]);
   const [userWebhooks, setUserWebhooks] = useState<UserWebhook[]>([]);
   const [monitorWebhooks, setMonitorWebhooks] = useState<UserWebhook[]>([]);
+  const [linkedGithubTokenId, setLinkedGithubTokenId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isCreatingWebhook, setIsCreatingWebhook] = useState(false);
@@ -105,10 +133,14 @@ export default function MonitorDetailsPage() {
   const [newWebhookProvider, setNewWebhookProvider] = useState<NotificationProvider>("slack");
   const [newWebhookUrl, setNewWebhookUrl] = useState("");
   const [selectedWebhookId, setSelectedWebhookId] = useState("");
+  const [selectedGithubTokenId, setSelectedGithubTokenId] = useState("");
 
   const handleAuthError = useCallback(
     (error: unknown) => {
-      if (error instanceof ApiError && error.status === 401) {
+      if (
+        (error instanceof ApiError || error instanceof GithubTokenError) &&
+        error.status === 401
+      ) {
         logout();
         return true;
       }
@@ -126,17 +158,35 @@ export default function MonitorDetailsPage() {
     setIsLoading(true);
 
     try {
-      const [monitorDetails, monitorHistory, allWebhooks, linkedWebhooks] = await Promise.all([
+      const [monitorDetails, monitorHistory, allWebhooks, linkedWebhooks, allGithubTokens] =
+        await Promise.all([
         getMonitorById(token, monitorId),
         getMonitorHistory(token, monitorId),
         listUserWebhooks(token),
         listMonitorWebhooks(token, monitorId),
+        fetchGithubTokens(token),
       ]);
 
       setMonitor(monitorDetails);
       setHistory(monitorHistory);
       setUserWebhooks(allWebhooks);
       setMonitorWebhooks(linkedWebhooks);
+      const resolvedLinkedTokenId = resolveLinkedGithubTokenId(monitorDetails);
+      const hasExplicitLinkedToken = Object.prototype.hasOwnProperty.call(
+        monitorDetails,
+        "github_token_id",
+      );
+      setLinkedGithubTokenId((previous) =>
+        hasExplicitLinkedToken ? resolvedLinkedTokenId : resolvedLinkedTokenId ?? previous,
+      );
+      setSelectedGithubTokenId((previous) => {
+        const nextTokenId = hasExplicitLinkedToken
+          ? resolvedLinkedTokenId ?? ""
+          : resolvedLinkedTokenId ?? previous;
+        return nextTokenId && allGithubTokens.some((item) => item.id === nextTokenId)
+          ? nextTokenId
+          : "";
+      });
     } catch (error) {
       if (handleAuthError(error)) {
         return;
@@ -149,7 +199,7 @@ export default function MonitorDetailsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [handleAuthError, monitorId, token]);
+  }, [fetchGithubTokens, handleAuthError, monitorId, token]);
 
   useEffect(() => {
     if (isReady && token && monitorId) {
@@ -188,6 +238,20 @@ export default function MonitorDetailsPage() {
     () => userWebhooks.filter((webhook) => !linkedWebhookIds.has(webhook.id)),
     [linkedWebhookIds, userWebhooks],
   );
+
+  const activeGithubTokens = useMemo(
+    () => githubTokens.filter((item) => item.is_active),
+    [githubTokens],
+  );
+
+  const currentlyLinkedGithubToken = useMemo(
+    () => githubTokens.find((item) => item.id === linkedGithubTokenId) ?? null,
+    [githubTokens, linkedGithubTokenId],
+  );
+
+  const linkedTokenLabel = currentlyLinkedGithubToken
+    ? maskGithubToken(currentlyLinkedGithubToken.token_last4)
+    : "selected token";
 
   const handleUpdate = useCallback(
     async (payload: UpdateMonitorPayload) => {
@@ -325,6 +389,80 @@ export default function MonitorDetailsPage() {
     },
     [handleAuthError, loadData, monitorId, token],
   );
+
+  const isLinkingGithubToken = monitorId ? linkingMonitorId === monitorId : false;
+  const isUnlinkingGithubToken = monitorId ? unlinkingMonitorId === monitorId : false;
+
+  const handleLinkGithubToken = useCallback(async () => {
+    if (!token || !monitorId) {
+      return;
+    }
+
+    if (!selectedGithubTokenId) {
+      setFeedback({ tone: "error", message: "Select a GitHub token to link." });
+      return;
+    }
+
+    setFeedback(null);
+
+    try {
+      await linkTokenToMonitor(token, monitorId, selectedGithubTokenId);
+      setLinkedGithubTokenId(selectedGithubTokenId);
+      setFeedback({ tone: "success", message: "GitHub token linked to this monitor." });
+      await loadData();
+    } catch (error) {
+      if (handleAuthError(error)) {
+        return;
+      }
+
+      setFeedback({ tone: "error", message: extractErrorMessage(error) });
+    }
+  }, [
+    handleAuthError,
+    linkTokenToMonitor,
+    loadData,
+    monitorId,
+    selectedGithubTokenId,
+    token,
+  ]);
+
+  const handleUnlinkGithubToken = useCallback(async () => {
+    if (!token || !monitorId || !linkedGithubTokenId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Unlink GitHub token ${linkedTokenLabel} from this monitor?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setFeedback(null);
+
+    try {
+      await unlinkTokenFromMonitor(token, monitorId, linkedGithubTokenId);
+      setLinkedGithubTokenId(null);
+      setSelectedGithubTokenId("");
+      setFeedback({ tone: "success", message: "GitHub token unlinked from this monitor." });
+      await loadData();
+    } catch (error) {
+      if (handleAuthError(error)) {
+        return;
+      }
+
+      setFeedback({ tone: "error", message: extractErrorMessage(error) });
+    }
+  }, [
+    handleAuthError,
+    linkedTokenLabel,
+    linkedGithubTokenId,
+    loadData,
+    monitorId,
+    token,
+    unlinkTokenFromMonitor,
+  ]);
 
   if (!isReady) {
     return null;
@@ -494,6 +632,97 @@ export default function MonitorDetailsPage() {
             isSubmitting={isUpdating}
             submitLabel="Save Changes"
           />
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">Code Fix Configuration</h2>
+            <p className="text-sm text-slate-600">
+              Link a GitHub token to enable code-fix agent actions for this monitor.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => void loadData()}
+            loading={isLoading}
+            className="w-full sm:w-auto"
+          >
+            Refresh Tokens
+          </Button>
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+            <h3 className="text-base font-semibold text-slate-900">Link token to monitor</h3>
+            <Select
+              label="Available GitHub tokens"
+              value={selectedGithubTokenId}
+              onChange={(event) => setSelectedGithubTokenId(event.target.value)}
+              disabled={activeGithubTokens.length === 0}
+            >
+              <option value="">
+                {activeGithubTokens.length === 0
+                  ? "No active token available"
+                  : "Select a GitHub token"}
+              </option>
+              {activeGithubTokens.map((tokenItem) => (
+                <option key={tokenItem.id} value={tokenItem.id}>
+                  {maskGithubToken(tokenItem.token_last4)}
+                </option>
+              ))}
+            </Select>
+
+            <Button
+              variant="secondary"
+              onClick={() => void handleLinkGithubToken()}
+              loading={isLinkingGithubToken}
+              disabled={!selectedGithubTokenId || activeGithubTokens.length === 0}
+              className="w-full sm:w-auto"
+            >
+              Link Token
+            </Button>
+
+            {activeGithubTokens.length === 0 ? (
+              <p className="text-sm text-slate-600">
+                No active tokens found. Create one in{" "}
+                <Link
+                  href="/settings/github-tokens"
+                  className="font-semibold text-slate-900 underline decoration-slate-300 underline-offset-4"
+                >
+                  GitHub Tokens
+                </Link>
+                .
+              </p>
+            ) : null}
+          </div>
+
+          <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+            <h3 className="text-base font-semibold text-slate-900">Currently linked token</h3>
+            {currentlyLinkedGithubToken ? (
+              <article className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-900">
+                  {maskGithubToken(currentlyLinkedGithubToken.token_last4)}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Created {formatDate(currentlyLinkedGithubToken.created_at)}
+                </p>
+                <Button
+                  variant="danger"
+                  onClick={() => void handleUnlinkGithubToken()}
+                  loading={isUnlinkingGithubToken}
+                  className="w-full sm:w-auto"
+                >
+                  Unlink
+                </Button>
+              </article>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+                No GitHub token linked to this monitor.
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
