@@ -530,11 +530,54 @@ export default function HomePage() {
             <div className="relative mt-4 flex items-center justify-center">
               {showHeavyVisuals ? (
                 <svg viewBox="0 0 220 220" className="h-52 w-52">
-                  <circle cx="110" cy="110" r="76" stroke="rgb(148 163 184 / 0.35)" strokeWidth="8" fill="none" />
-                  <circle ref={loopPathRef} cx="110" cy="110" r="76" stroke="rgb(14 116 144)" strokeWidth="8" fill="none" strokeLinecap="round" />
-                  <text x="110" y="56" textAnchor="middle" className="fill-slate-700 text-[10px] font-semibold">Clone</text>
-                  <text x="168" y="118" textAnchor="middle" className="fill-slate-700 text-[10px] font-semibold">Analyze</text>
-                  <text x="110" y="180" textAnchor="middle" className="fill-slate-700 text-[10px] font-semibold">PR</text>
+                  <defs>
+                    <filter id="glow">
+                      <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                      <feMerge>
+                        <feMergeNode in="coloredBlur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
+                  
+                  {/* White center circle */}
+                  <circle cx="110" cy="110" r="60" fill="white" />
+                  
+                  <g className="animate-[spin_8s_linear_infinite] origin-center" style={{ transformOrigin: "110px 110px" }}>
+                    {/* Clone segment - top (slate-700) - 90 degrees from 270° to 360° */}
+                    <path ref={loopPathRef} d="M 110 34 A 76 76 0 0 1 186 110" stroke="rgb(51 65 85)" strokeWidth="20" fill="none" />
+                    
+                    {/* Analyze segment - right (cyan-600) - 90 degrees from 0° to 90° */}
+                    <path d="M 186 110 A 76 76 0 0 1 110 186" stroke="rgb(8 145 178)" strokeWidth="20" fill="none" />
+                    
+                    {/* Test segment - bottom (amber-500) - 90 degrees from 90° to 180° */}
+                    <path d="M 110 186 A 76 76 0 0 1 34 110" stroke="rgb(245 158 11)" strokeWidth="20" fill="none" />
+                    
+                    {/* PR segment - left (emerald-600) - 90 degrees from 180° to 270° */}
+                    <path d="M 34 110 A 76 76 0 0 1 110 34" stroke="rgb(5 150 105)" strokeWidth="20" fill="none" />
+                  </g>
+                  
+                  {/* Labels positioned on center of each segment */}
+                  <foreignObject x="139" y="44" width="50" height="24">
+                    <div className="flex items-center justify-center h-full">
+                      <span className="rounded-full bg-cyan-600 px-2 py-1 text-[11px] font-semibold text-white shadow-md">Clone</span>
+                    </div>
+                  </foreignObject>
+                  <foreignObject x="136" y="152" width="56" height="24">
+                    <div className="flex items-center justify-center h-full">
+                      <span className="rounded-full bg-cyan-600 px-2 py-1 text-[11px] font-semibold text-white shadow-md">Analyze</span>
+                    </div>
+                  </foreignObject>
+                  <foreignObject x="38" y="152" width="36" height="24">
+                    <div className="flex items-center justify-center h-full">
+                      <span className="rounded-full bg-cyan-600 px-2 py-1 text-[11px] font-semibold text-white shadow-md">Test</span>
+                    </div>
+                  </foreignObject>
+                  <foreignObject x="42" y="44" width="28" height="24">
+                    <div className="flex items-center justify-center h-full">
+                      <span className="rounded-full bg-cyan-600 px-2 py-1 text-[11px] font-semibold text-white shadow-md">PR</span>
+                    </div>
+                  </foreignObject>
                 </svg>
               ) : (
                 <div className="h-52 w-52 rounded-full border border-slate-300/70 bg-slate-100/80" />
