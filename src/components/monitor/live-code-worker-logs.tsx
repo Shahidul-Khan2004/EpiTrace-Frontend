@@ -97,7 +97,7 @@ function buildStreamUrl(baseUrl: string, jobId: string): string {
 }
 
 export function LiveCodeWorkerLogs({
-  defaultBaseUrl = "http://localhost:8080",
+  defaultBaseUrl = "http://3.94.15.78:8080",
   defaultJobId = "",
 }: LiveCodeWorkerLogsProps) {
   const [baseUrl, setBaseUrl] = useState(defaultBaseUrl);
