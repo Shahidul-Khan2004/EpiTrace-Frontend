@@ -326,6 +326,25 @@ export default function DashboardPage() {
       onLogout={logout}
     >
       <div className="space-y-6">
+        <section className="grid grid-cols-2 gap-3 rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm sm:grid-cols-4 sm:p-5">
+          <div className="rounded-2xl bg-slate-50 p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Total</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">{monitorStats.total}</p>
+          </div>
+          <div className="rounded-2xl bg-emerald-50 p-4">
+            <p className="text-xs uppercase tracking-wide text-emerald-700">Up</p>
+            <p className="mt-2 text-2xl font-semibold text-emerald-800">{monitorStats.up}</p>
+          </div>
+          <div className="rounded-2xl bg-rose-50 p-4">
+            <p className="text-xs uppercase tracking-wide text-rose-700">Down</p>
+            <p className="mt-2 text-2xl font-semibold text-rose-800">{monitorStats.down}</p>
+          </div>
+          <div className="rounded-2xl bg-amber-50 p-4">
+            <p className="text-xs uppercase tracking-wide text-amber-700">Paused</p>
+            <p className="mt-2 text-2xl font-semibold text-amber-800">{monitorStats.paused}</p>
+          </div>
+        </section>
+
         <section className="space-y-4 rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -345,25 +364,6 @@ export default function DashboardPage() {
             onCreateGithubToken={handleCreateGithubToken}
             onCreateWebhook={handleCreateWebhook}
           />
-        </section>
-
-        <section className="grid grid-cols-2 gap-3 rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm sm:grid-cols-4 sm:p-5">
-          <div className="rounded-2xl bg-slate-50 p-4">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Total</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">{monitorStats.total}</p>
-          </div>
-          <div className="rounded-2xl bg-emerald-50 p-4">
-            <p className="text-xs uppercase tracking-wide text-emerald-700">Up</p>
-            <p className="mt-2 text-2xl font-semibold text-emerald-800">{monitorStats.up}</p>
-          </div>
-          <div className="rounded-2xl bg-rose-50 p-4">
-            <p className="text-xs uppercase tracking-wide text-rose-700">Down</p>
-            <p className="mt-2 text-2xl font-semibold text-rose-800">{monitorStats.down}</p>
-          </div>
-          <div className="rounded-2xl bg-amber-50 p-4">
-            <p className="text-xs uppercase tracking-wide text-amber-700">Paused</p>
-            <p className="mt-2 text-2xl font-semibold text-amber-800">{monitorStats.paused}</p>
-          </div>
         </section>
       </div>
 
