@@ -45,11 +45,11 @@ export default function HomePage() {
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const tickerTrackRef = useRef<HTMLDivElement | null>(null);
   const tickerSetRef = useRef<HTMLDivElement | null>(null);
-  const ctaTypingRef = useRef<number | null>(null);
+  const featureCardsSectionRef = useRef<HTMLElement | null>(null);
   const idleHeavyVisualRef = useRef<number | null>(null);
 
-  const [buttonText, setButtonText] = useState("Start Fixing for Free");
   const [showHeavyVisuals, setShowHeavyVisuals] = useState(false);
+  const [areFeatureCardsVisible, setAreFeatureCardsVisible] = useState(false);
 
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
@@ -70,8 +70,8 @@ export default function HomePage() {
         {
           opacity: 1,
           y: 0,
-          duration: 0.8,
-          stagger: 0.08,
+          duration: 1.05,
+          stagger: 0.12,
           ease: "power2.out",
           clearProps: "transform",
         },
@@ -265,6 +265,37 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    const section = featureCardsSectionRef.current;
+
+    if (!section || areFeatureCardsVisible) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+
+        if (!entry?.isIntersecting) {
+          return;
+        }
+
+        setAreFeatureCardsVisible(true);
+        observer.disconnect();
+      },
+      {
+        threshold: 0.2,
+        rootMargin: "0px 0px -10% 0px",
+      },
+    );
+
+    observer.observe(section);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [areFeatureCardsVisible]);
+
+  useEffect(() => {
     const canvas = auraCanvasRef.current;
 
     if (!canvas) {
@@ -345,44 +376,6 @@ export default function HomePage() {
     };
   }, []);
 
-  const startTyping = () => {
-    if (ctaTypingRef.current !== null) {
-      window.clearInterval(ctaTypingRef.current);
-      ctaTypingRef.current = null;
-    }
-
-    const target = "git clone [repo-url]";
-    let index = 0;
-    setButtonText("");
-
-    ctaTypingRef.current = window.setInterval(() => {
-      index += 1;
-      setButtonText(target.slice(0, index));
-
-      if (index >= target.length && ctaTypingRef.current !== null) {
-        window.clearInterval(ctaTypingRef.current);
-        ctaTypingRef.current = null;
-      }
-    }, 42);
-  };
-
-  const resetTyping = () => {
-    if (ctaTypingRef.current !== null) {
-      window.clearInterval(ctaTypingRef.current);
-      ctaTypingRef.current = null;
-    }
-
-    setButtonText("Start Fixing for Free");
-  };
-
-  useEffect(() => {
-    return () => {
-      if (ctaTypingRef.current !== null) {
-        window.clearInterval(ctaTypingRef.current);
-      }
-    };
-  }, []);
-
   return (
     <main ref={pageRef} className="mx-auto min-h-screen max-w-7xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
       <section className="space-y-4">
@@ -412,11 +405,9 @@ export default function HomePage() {
                 <motion.div whileHover={{ y: -2 }} transition={springTransition}>
                   <Link
                     href="/register"
-                    onMouseEnter={startTyping}
-                    onMouseLeave={resetTyping}
                     className="inline-flex min-w-56 whitespace-nowrap items-center justify-center rounded-2xl bg-slate-900 px-6 py-3 text-sm font-semibold text-blue-50"
                   >
-                    {buttonText}
+                    Start Fixing for Free
                   </Link>
                 </motion.div>
 
@@ -511,11 +502,14 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-12" data-reveal>
+        <section ref={featureCardsSectionRef} className="grid gap-4 lg:grid-cols-12">
           <motion.article
             whileHover={{ y: -3 }}
             transition={springTransition}
-            className="glass-panel rounded-[28px] p-5 lg:col-span-4"
+            className={`glass-panel rounded-[28px] p-5 lg:col-span-4 transition-[transform,opacity] duration-[1100ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+              areFeatureCardsVisible ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"
+            }`}
+            style={{ transitionDelay: areFeatureCardsVisible ? "0ms" : "0ms" }}
           >
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Silent Surveillance</p>
             <h2 className="mt-2 text-xl font-semibold text-slate-900">24/7 Watchdog</h2>
@@ -538,7 +532,10 @@ export default function HomePage() {
           <motion.article
             whileHover={{ y: -3 }}
             transition={springTransition}
-            className="glass-panel relative overflow-hidden rounded-[28px] p-5 lg:col-span-4"
+            className={`glass-panel relative overflow-hidden rounded-[28px] p-5 lg:col-span-4 transition-[transform,opacity] duration-[1100ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+              areFeatureCardsVisible ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"
+            }`}
+            style={{ transitionDelay: areFeatureCardsVisible ? "200ms" : "0ms" }}
             data-repair-loop
           >
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Active Remediation</p>
@@ -572,7 +569,10 @@ export default function HomePage() {
           <motion.article
             whileHover={{ y: -3 }}
             transition={springTransition}
-            className="glass-panel rounded-[28px] p-5 lg:col-span-4"
+            className={`glass-panel rounded-[28px] p-5 lg:col-span-4 transition-[transform,opacity] duration-[1100ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+              areFeatureCardsVisible ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"
+            }`}
+            style={{ transitionDelay: areFeatureCardsVisible ? "400ms" : "0ms" }}
           >
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Deep Logic Logs</p>
             <h2 className="mt-2 text-xl font-semibold text-slate-900">Webhook Integration</h2>
