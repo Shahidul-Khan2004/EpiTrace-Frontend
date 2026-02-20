@@ -1,326 +1,614 @@
 "use client";
 
+import { motion } from "framer-motion";
 import gsap from "gsap";
-import { CustomEase } from "gsap/CustomEase";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-const bentoItems = [
-  { title: "24/7 Uptime", text: "Continuous checks with smart intervals." },
-  { title: "Alert Routing", text: "Slack and Discord hooks in one flow." },
-  { title: "Code-Fix Ready", text: "Attach GitHub tokens per monitor." },
-  { title: "History View", text: "Track incidents with clear timelines." },
+const springTransition = {
+  type: "spring",
+  stiffness: 100,
+  damping: 20,
+} as const;
+
+const logLines = [
+  "[watchdog] GET /api/v1/auth -> 200 OK",
+  "[watchdog] GET /api/v1/users -> 200 OK",
+  "[watchdog] GET /api/v1/auth -> 500 Internal Server Error",
+  "[agent] Cline Agent initialized...",
+  "[agent] Cloning repo...",
+  "[agent] Analyzing stack trace...",
+  "[result] PR #402 Created: 'Fix: Null pointer in /api/v1/auth'",
 ];
 
-const bottomStats = [
-  { label: "Avg response", value: "132ms" },
-  { label: "Monitors online", value: "42" },
-  { label: "Open incidents", value: "3" },
-  { label: "Alert latency", value: "<1s" },
+const workflowTicker = [
+  "GitHub",
+  "Cline AI",
+  "Slack",
+  "Discord",
+  "Webhooks",
+  "Next.js",
+  "Python",
+  "Go",
 ];
 
 export default function HomePage() {
   const pageRef = useRef<HTMLElement | null>(null);
-  const floatingCardRef = useRef<HTMLDivElement | null>(null);
-  const parallaxLayerARef = useRef<HTMLDivElement | null>(null);
-  const parallaxLayerBRef = useRef<HTMLDivElement | null>(null);
-  const ctaMagneticRef = useRef<HTMLAnchorElement | null>(null);
+  const heartbeatRef = useRef<SVGPathElement | null>(null);
+  const travelAlertRef = useRef<HTMLDivElement | null>(null);
+  const travelAgentRef = useRef<HTMLDivElement | null>(null);
+  const prBadgeRef = useRef<HTMLDivElement | null>(null);
+  const logTrackRef = useRef<HTMLDivElement | null>(null);
+  const loopPathRef = useRef<SVGCircleElement | null>(null);
+  const auraCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const terminalRef = useRef<HTMLDivElement | null>(null);
+  const tickerTrackRef = useRef<HTMLDivElement | null>(null);
+  const tickerSetRef = useRef<HTMLDivElement | null>(null);
+  const ctaTypingRef = useRef<number | null>(null);
+  const idleHeavyVisualRef = useRef<number | null>(null);
+
+  const [buttonText, setButtonText] = useState("Start Fixing for Free");
+  const [showHeavyVisuals, setShowHeavyVisuals] = useState(false);
 
   useEffect(() => {
-    gsap.registerPlugin(ScrollTrigger, CustomEase);
-    CustomEase.create("snapIn", "M0,0 C0.2,0.8 0.2,1 1,1");
+    gsap.registerPlugin(ScrollTrigger);
+
+    const root = pageRef.current;
+
+    if (!root) {
+      return;
+    }
 
     const context = gsap.context(() => {
-      if (floatingCardRef.current) {
-        gsap.to(floatingCardRef.current, {
-          y: -10,
-          duration: 3.2,
-          ease: "sine.inOut",
-          yoyo: true,
-          repeat: -1,
-          force3D: true,
-        });
-      }
+      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let tickerTween: gsap.core.Tween | null = null;
 
-      const revealItems = gsap.utils.toArray<HTMLElement>("[data-reveal]");
       gsap.fromTo(
-        revealItems,
-        { opacity: 0, y: 34, force3D: true },
+        "[data-reveal]",
+        { opacity: 0, y: 24 },
         {
           opacity: 1,
           y: 0,
-          duration: 0.9,
-          ease: "snapIn",
-          stagger: 0.1,
-          scrollTrigger: {
-            trigger: pageRef.current,
-            start: "top top+=80",
-          },
+          duration: 0.8,
+          stagger: 0.08,
+          ease: "power2.out",
+          clearProps: "transform",
         },
       );
 
-      if (parallaxLayerARef.current) {
-        gsap.to(parallaxLayerARef.current, {
-          y: 280,
-          ease: "none",
-          force3D: true,
-          scrollTrigger: {
-            trigger: pageRef.current,
-            start: "top top",
-            end: "bottom bottom",
-            scrub: true,
-          },
-        });
-      }
-
-      if (parallaxLayerBRef.current) {
-        gsap.to(parallaxLayerBRef.current, {
-          y: -240,
-          ease: "none",
-          force3D: true,
-          scrollTrigger: {
-            trigger: pageRef.current,
-            start: "top top",
-            end: "bottom bottom",
-            scrub: true,
-          },
-        });
-      }
-    }, pageRef);
-
-    const magnetic = ctaMagneticRef.current;
-
-    const onMouseMove = (event: MouseEvent) => {
-      if (!magnetic) {
+      if (prefersReducedMotion) {
         return;
       }
 
-      const bounds = magnetic.getBoundingClientRect();
-      const offsetX = event.clientX - (bounds.left + bounds.width / 2);
-      const offsetY = event.clientY - (bounds.top + bounds.height / 2);
-      const distance = Math.hypot(offsetX, offsetY);
+      if (terminalRef.current) {
+        const sequenceLines = terminalRef.current.querySelectorAll("[data-terminal-line]");
+        gsap.fromTo(
+          sequenceLines,
+          { opacity: 0.2 },
+          {
+            opacity: 1,
+            duration: 0.8,
+            stagger: 1,
+            repeat: -1,
+            yoyo: true,
+            ease: "power1.inOut",
+          },
+        );
+      }
 
-      if (distance <= 20) {
-        gsap.to(magnetic, {
-          x: offsetX * 0.35,
-          y: offsetY * 0.35,
-          duration: 0.2,
+      if (heartbeatRef.current && travelAlertRef.current && travelAgentRef.current) {
+        const lane = travelAlertRef.current.parentElement;
+        const laneWidth = lane?.clientWidth ?? 500;
+        const alertTravel = Math.max(140, laneWidth * 0.48);
+        const agentStart = Math.max(140, laneWidth * 0.48);
+        const agentTravel = Math.max(240, laneWidth * 0.8);
+
+        const beat = gsap.timeline({ repeat: -1, repeatDelay: 0.8 });
+
+        beat
+          .to(heartbeatRef.current, {
+            attr: {
+              d: "M0 32 L16 32 L24 16 L32 48 L40 22 L48 32 L100 32",
+            },
+            duration: 0.45,
+            ease: "power2.inOut",
+          })
+          .to(heartbeatRef.current, {
+            attr: {
+              d: "M0 32 L100 32",
+            },
+            duration: 0.25,
+            ease: "none",
+          })
+          .set(travelAlertRef.current, { x: 0, opacity: 0 })
+          .to(travelAlertRef.current, { opacity: 1, duration: 0.12 })
+          .to(travelAlertRef.current, {
+            x: alertTravel,
+            duration: 0.9,
+            ease: "power2.inOut",
+          })
+          .to(travelAlertRef.current, { opacity: 0, duration: 0.2 })
+          .set(travelAgentRef.current, { x: agentStart, opacity: 0 })
+          .to(travelAgentRef.current, { opacity: 1, duration: 0.12 })
+          .to(travelAgentRef.current, {
+            x: agentTravel,
+            duration: 0.9,
+            ease: "power2.inOut",
+          })
+          .to(travelAgentRef.current, { opacity: 0, duration: 0.2 });
+      }
+
+      if (prBadgeRef.current) {
+        gsap.fromTo(
+          prBadgeRef.current,
+          { x: 24, opacity: 0 },
+          {
+            x: 0,
+            opacity: 1,
+            duration: 0.55,
+            ease: "back.out(1.7)",
+            repeat: -1,
+            repeatDelay: 3.2,
+          },
+        );
+      }
+
+      if (logTrackRef.current) {
+        gsap.fromTo(
+          logTrackRef.current,
+          { yPercent: 0 },
+          {
+            yPercent: -50,
+            duration: 7,
+            ease: "none",
+            repeat: -1,
+          },
+        );
+      }
+
+      if (loopPathRef.current) {
+        const length = loopPathRef.current.getTotalLength();
+        gsap.set(loopPathRef.current, {
+          strokeDasharray: length,
+          strokeDashoffset: length,
+        });
+
+        gsap.to(loopPathRef.current, {
+          strokeDashoffset: 0,
           ease: "power2.out",
-          force3D: true,
+          scrollTrigger: {
+            trigger: "[data-repair-loop]",
+            start: "top 80%",
+            end: "bottom 30%",
+            scrub: true,
+          },
         });
-        return;
       }
 
-      gsap.to(magnetic, {
-        x: 0,
-        y: 0,
-        duration: 0.25,
-        ease: "power2.out",
-        force3D: true,
+      gsap.to("[data-webhook-icon]", {
+        opacity: 0.8,
+        scale: 1.04,
+        duration: 1.6,
+        ease: "sine.inOut",
+        stagger: 0.2,
+        repeat: -1,
+        yoyo: true,
       });
-    };
 
-    const onMouseLeave = () => {
-      if (!magnetic) {
-        return;
-      }
+      const setupTickerLoop = () => {
+        if (!tickerTrackRef.current || !tickerSetRef.current) {
+          return;
+        }
 
-      gsap.to(magnetic, {
-        x: 0,
-        y: 0,
-        duration: 0.3,
-        ease: "power2.out",
-        force3D: true,
-      });
-    };
+        tickerTween?.kill();
+        gsap.set(tickerTrackRef.current, { x: 0 });
 
-    window.addEventListener("mousemove", onMouseMove, { passive: true });
-    window.addEventListener("mouseleave", onMouseLeave);
+        const singleSetWidth = tickerSetRef.current.scrollWidth;
+
+        if (singleSetWidth <= 0) {
+          return;
+        }
+
+        tickerTween = gsap.to(tickerTrackRef.current, {
+          x: -singleSetWidth,
+          duration: 18,
+          ease: "none",
+          repeat: -1,
+        });
+      };
+
+      setupTickerLoop();
+      window.addEventListener("resize", setupTickerLoop);
+
+      return () => {
+        window.removeEventListener("resize", setupTickerLoop);
+        tickerTween?.kill();
+      };
+    }, root);
 
     return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseleave", onMouseLeave);
       context.revert();
       ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
     };
   }, []);
 
+  useEffect(() => {
+    const idle =
+      "requestIdleCallback" in window
+        ? (window as Window & {
+            requestIdleCallback: (callback: () => void, options?: { timeout: number }) => number;
+          }).requestIdleCallback(() => {
+            setShowHeavyVisuals(true);
+          }, { timeout: 900 })
+        : window.setTimeout(() => {
+            setShowHeavyVisuals(true);
+          }, 450);
+
+    idleHeavyVisualRef.current = idle;
+
+    return () => {
+      if (idleHeavyVisualRef.current === null) {
+        return;
+      }
+
+      if ("cancelIdleCallback" in window) {
+        (
+          window as Window & {
+            cancelIdleCallback: (id: number) => void;
+          }
+        ).cancelIdleCallback(idleHeavyVisualRef.current);
+      } else {
+        window.clearTimeout(idleHeavyVisualRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const canvas = auraCanvasRef.current;
+
+    if (!canvas) {
+      return;
+    }
+
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      return;
+    }
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      context.clearRect(0, 0, width, height);
+      const gradient = context.createRadialGradient(
+        width * 0.6,
+        height * 0.55,
+        10,
+        width * 0.6,
+        height * 0.55,
+        width * 0.5,
+      );
+      gradient.addColorStop(0, "rgba(56, 189, 248, 0.35)");
+      gradient.addColorStop(0.45, "rgba(59, 130, 246, 0.2)");
+      gradient.addColorStop(1, "rgba(14, 116, 144, 0)");
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, width, height);
+      return;
+    }
+
+    let frame = 0;
+    let raf = 0;
+
+    const resize = () => {
+      const ratio = window.devicePixelRatio || 1;
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      canvas.width = Math.floor(width * ratio);
+      canvas.height = Math.floor(height * ratio);
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    };
+
+    const draw = () => {
+      frame += 1;
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      const pulse = 0.5 + Math.sin(frame / 25) * 0.2;
+
+      context.clearRect(0, 0, width, height);
+
+      const gradient = context.createRadialGradient(
+        width * 0.6,
+        height * 0.55,
+        10,
+        width * 0.6,
+        height * 0.55,
+        width * 0.5,
+      );
+      gradient.addColorStop(0, `rgba(56, 189, 248, ${0.26 + pulse})`);
+      gradient.addColorStop(0.45, "rgba(59, 130, 246, 0.26)");
+      gradient.addColorStop(1, "rgba(14, 116, 144, 0)");
+
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, width, height);
+
+      raf = window.requestAnimationFrame(draw);
+    };
+
+    resize();
+    draw();
+    window.addEventListener("resize", resize);
+
+    return () => {
+      window.removeEventListener("resize", resize);
+      window.cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  const startTyping = () => {
+    if (ctaTypingRef.current !== null) {
+      window.clearInterval(ctaTypingRef.current);
+      ctaTypingRef.current = null;
+    }
+
+    const target = "git clone [repo-url]";
+    let index = 0;
+    setButtonText("");
+
+    ctaTypingRef.current = window.setInterval(() => {
+      index += 1;
+      setButtonText(target.slice(0, index));
+
+      if (index >= target.length && ctaTypingRef.current !== null) {
+        window.clearInterval(ctaTypingRef.current);
+        ctaTypingRef.current = null;
+      }
+    }, 42);
+  };
+
+  const resetTyping = () => {
+    if (ctaTypingRef.current !== null) {
+      window.clearInterval(ctaTypingRef.current);
+      ctaTypingRef.current = null;
+    }
+
+    setButtonText("Start Fixing for Free");
+  };
+
+  useEffect(() => {
+    return () => {
+      if (ctaTypingRef.current !== null) {
+        window.clearInterval(ctaTypingRef.current);
+      }
+    };
+  }, []);
+
   return (
-    <main ref={pageRef} className="relative min-h-screen overflow-hidden">
-      <div className="pointer-events-none absolute inset-0">
-        <div ref={parallaxLayerARef} className="mesh-orb mesh-orb-a" />
-        <div ref={parallaxLayerBRef} className="mesh-orb mesh-orb-b" />
-      </div>
-
-      <div className="relative mx-auto w-full max-w-7xl px-4 pb-16 pt-6 sm:px-6 md:pt-8 lg:px-8">
-        <header
+    <main ref={pageRef} className="mx-auto min-h-screen max-w-7xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+      <section className="space-y-4">
+        <motion.article
           data-reveal
-          className="glass-panel flex flex-wrap items-center justify-between gap-3 rounded-[28px] px-4 py-3 sm:px-5"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={springTransition}
+          className="glass-panel rounded-[32px] p-6 sm:p-8"
         >
-          <div className="flex items-center gap-3">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-sm font-bold text-blue-100">
-              E
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-slate-900">EpiTrace</p>
-              <p className="text-xs text-slate-500">Fluid reliability platform</p>
-            </div>
-          </div>
+          <p className="inline-flex rounded-full border border-slate-300/80 bg-white/65 px-3 py-1 text-xs font-semibold text-slate-700">
+            Active Recovery • AI-native monitoring & auto-remediation
+          </p>
 
-          <div className="flex w-full items-center gap-2 sm:w-auto">
-            <Link
-              href="/login"
-              className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300/80 bg-white/60 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-white sm:w-auto"
-            >
-              Log In
-            </Link>
-            <Link
-              href="/register"
-              className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-blue-50 transition hover:bg-slate-800 sm:w-auto"
-            >
-              Start Free
-            </Link>
-          </div>
-        </header>
+          <div className="mt-4 grid gap-5 lg:grid-cols-12 lg:items-start">
+            <div className="lg:col-span-7">
+              <h1 className="text-4xl font-semibold leading-tight text-slate-950 sm:text-5xl lg:text-6xl">
+                Don’t just monitor your downtime. Autonomously fix it.
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm text-slate-600 sm:text-base">
+                24/7 API monitoring that does more than alert your Slack. When a service drops, our
+                Cline-powered agents clone your repo, diagnose the failure, and submit a Pull
+                Request before your first cup of coffee.
+              </p>
 
-        <section className="mt-6 grid gap-4 lg:grid-cols-12">
-          <article
-            data-reveal
-            className="glass-panel rounded-[32px] p-6 lg:col-span-7 lg:p-8"
-          >
-            <span className="inline-flex rounded-full border border-slate-200/80 bg-white/50 px-3 py-1 text-xs font-semibold text-slate-700">
-              Real-time monitoring + agent workflows
-            </span>
-            <h1 className="mt-4 text-4xl font-semibold leading-tight text-slate-950 sm:text-5xl lg:text-6xl">
-              A fluid command center for API reliability.
-            </h1>
-            <p className="mt-4 max-w-xl text-sm text-slate-600 sm:text-base">
-              Watch endpoint health, route alerts instantly, and keep every incident response
-              traceable from one high-signal workspace.
-            </p>
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <motion.div whileHover={{ y: -2 }} transition={springTransition}>
+                  <Link
+                    href="/register"
+                    onMouseEnter={startTyping}
+                    onMouseLeave={resetTyping}
+                    className="inline-flex min-w-56 whitespace-nowrap items-center justify-center rounded-2xl bg-slate-900 px-6 py-3 text-sm font-semibold text-blue-50"
+                  >
+                    {buttonText}
+                  </Link>
+                </motion.div>
 
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link
-                ref={ctaMagneticRef}
-                href="/register"
-                className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-6 py-3 text-sm font-semibold text-blue-50 will-change-transform"
-              >
-                Launch Workspace
-              </Link>
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center justify-center rounded-2xl border border-slate-300/80 bg-white/60 px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-white"
-              >
-                View Dashboard
-              </Link>
-            </div>
-          </article>
-
-          <article data-reveal className="glass-panel relative rounded-[32px] p-5 lg:col-span-5">
-            <div
-              ref={floatingCardRef}
-              className="rounded-[26px] border border-white/50 bg-white/55 p-4 backdrop-blur-[12px] will-change-transform"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Floating Dock</p>
-                <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
-                  Live
-                </span>
+                <p className="text-xs text-slate-500">No credit card. Connect GitHub in 30s.</p>
               </div>
 
-              <div className="mt-4 grid grid-cols-3 gap-3">
-                <div className="rounded-2xl border border-slate-200/70 bg-white/70 p-3">
-                  <p className="text-xs text-slate-500">Monitors</p>
-                  <p className="mt-1 text-xl font-semibold text-slate-900">42</p>
-                </div>
-                <div className="rounded-2xl border border-slate-200/70 bg-white/70 p-3">
-                  <p className="text-xs text-slate-500">Uptime</p>
-                  <p className="mt-1 text-xl font-semibold text-slate-900">99.98%</p>
-                </div>
-                <div className="rounded-2xl border border-slate-200/70 bg-white/70 p-3">
-                  <p className="text-xs text-slate-500">Alerts</p>
-                  <p className="mt-1 text-xl font-semibold text-slate-900">3</p>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-2">
-                <div className="h-2 rounded-full bg-slate-200/90">
-                  <div className="h-full w-[82%] rounded-full bg-gradient-to-r from-blue-500 to-slate-800" />
-                </div>
-                <div className="h-2 rounded-full bg-slate-200/90">
-                  <div className="h-full w-[64%] rounded-full bg-gradient-to-r from-cyan-400 to-blue-600" />
-                </div>
-              </div>
-            </div>
-          </article>
-
-          {bentoItems.map((item) => (
-            <article
-              key={item.title}
-              data-reveal
-              className="glass-panel rounded-[28px] p-5 lg:col-span-3"
-            >
-              <p className="text-lg font-semibold text-slate-900">{item.title}</p>
-              <p className="mt-2 text-sm text-slate-600">{item.text}</p>
-            </article>
-          ))}
-
-          <article
-            data-reveal
-            className="glass-panel rounded-[30px] p-6 lg:col-span-12 lg:flex lg:items-center lg:justify-between"
-          >
-            <div>
-              <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">
-                Built for motion, clarity, and speed.
-              </h2>
-              <p className="mt-2 text-sm text-slate-600 sm:text-base">
-                Transform-based motion keeps interactions smooth and performant across devices.
+              <p className="mt-5 text-sm font-medium text-slate-800">
+                Don&apos;t just wake up to an error; wake up to the Pull Request that fixes it.
               </p>
             </div>
-            <div className="mt-4 lg:mt-0">
-              <Link
-                href="/register"
-                className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-6 py-3 text-sm font-semibold text-blue-50 transition hover:bg-slate-800"
-              >
-                Create Account
-              </Link>
-            </div>
-          </article>
 
-          <article data-reveal className="glass-panel rounded-[30px] p-6 lg:col-span-8">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {bottomStats.map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-2xl border border-slate-200/70 bg-white/60 p-4 backdrop-blur-[12px]"
-                >
-                  <p className="text-xs uppercase tracking-wide text-slate-500">{item.label}</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-900">{item.value}</p>
+            <div className="space-y-3 lg:col-span-5">
+              <div
+                ref={terminalRef}
+                className="rounded-2xl border border-slate-300/70 bg-slate-950 p-3 font-mono text-xs text-slate-200"
+              >
+                <p className="text-[10px] uppercase tracking-wide text-slate-400">Micro Terminal</p>
+                <p data-terminal-line className="mt-2 text-red-400">
+                  Status: 500 Internal Server Error
+                </p>
+                <p data-terminal-line className="mt-1 text-cyan-300">
+                  Action: Cline Agent initialized...
+                </p>
+                <p data-terminal-line className="mt-1 text-slate-100">
+                  Action: Cloning repo... Analyzing stack trace...
+                </p>
+                <p data-terminal-line className="mt-1 text-emerald-400">
+                  Result: PR #402 Created: &quot;Fix: Null pointer in /api/v1/auth&quot;
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-300/70 bg-white/70 p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Active Monitor
+                  </p>
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                    Live
+                  </span>
+                </div>
+
+                <div className="relative mt-3 overflow-hidden rounded-xl border border-slate-200/80 bg-slate-950/95 p-3">
+                  <svg viewBox="0 0 100 64" className="h-14 w-full">
+                    <path
+                      ref={heartbeatRef}
+                      d="M0 32 L16 32 L24 16 L32 48 L40 22 L48 32 L100 32"
+                      fill="none"
+                      stroke="rgb(56 189 248)"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+
+                  <div className="relative mt-2 h-9 overflow-hidden">
+                    <div className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-slate-600/70" />
+                    <div className="absolute inset-y-0 left-0 flex w-full items-center text-sm">
+                      <div ref={travelAlertRef} className="absolute rounded-md bg-rose-400/90 px-1.5 py-0.5 text-[10px] font-semibold text-rose-950">
+                        ⚠ Alert
+                      </div>
+                      <div ref={travelAgentRef} className="absolute rounded-md bg-cyan-300/90 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-950">
+                        ◇ Cline
+                      </div>
+                    </div>
+
+                    <div className="absolute right-0 top-1/2 flex -translate-y-1/2 items-center gap-2 text-[10px]">
+                      <span className="rounded bg-slate-800 px-1.5 py-0.5 text-slate-300">Slack/Discord</span>
+                      <span className="rounded bg-slate-800 px-1.5 py-0.5 text-slate-300">GitHub</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.article>
+
+        <section className="overflow-hidden rounded-2xl border border-slate-300/70 bg-white/55 py-3" data-reveal>
+          <div ref={tickerTrackRef} className="flex w-max items-center gap-2 will-change-transform" data-ticker-track>
+            <div ref={tickerSetRef} className="flex shrink-0 items-center gap-2 px-2">
+              {workflowTicker.map((item) => (
+                <div key={`${item}-primary`} className="rounded-full border border-slate-300/80 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-700">
+                  {item}
                 </div>
               ))}
             </div>
-          </article>
+            <div className="flex shrink-0 items-center gap-2 px-2" aria-hidden="true">
+              {workflowTicker.map((item) => (
+                <div key={`${item}-clone`} className="rounded-full border border-slate-300/80 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-700">
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
-          <article data-reveal className="glass-panel rounded-[30px] p-6 lg:col-span-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Integrations</p>
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-slate-200/70 bg-white/60 p-4 text-sm font-semibold text-slate-800">
-                GitHub
-              </div>
-              <div className="rounded-2xl border border-slate-200/70 bg-white/60 p-4 text-sm font-semibold text-slate-800">
-                Slack
-              </div>
-              <div className="rounded-2xl border border-slate-200/70 bg-white/60 p-4 text-sm font-semibold text-slate-800">
-                Discord
-              </div>
-              <div className="rounded-2xl border border-slate-200/70 bg-white/60 p-4 text-sm font-semibold text-slate-800">
-                Webhooks
+        <section className="grid gap-4 lg:grid-cols-12" data-reveal>
+          <motion.article
+            whileHover={{ y: -3 }}
+            transition={springTransition}
+            className="glass-panel rounded-[28px] p-5 lg:col-span-4"
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Silent Surveillance</p>
+            <h2 className="mt-2 text-xl font-semibold text-slate-900">24/7 Watchdog</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Real-time heartbeats across Discord, Slack, and Webhooks. If it breathes, we’re
+              watching.
+            </p>
+
+            <div className="mt-4 overflow-hidden rounded-xl border border-slate-300/70 bg-slate-950 p-3 font-mono text-xs text-slate-200">
+              <div ref={logTrackRef} className="space-y-1">
+                {[...logLines, ...logLines].map((line, index) => (
+                  <p key={`${line}-${index}`} className={line.includes("500") ? "text-rose-400" : line.includes("200") ? "text-emerald-400" : "text-cyan-300"}>
+                    {line}
+                  </p>
+                ))}
               </div>
             </div>
-          </article>
+          </motion.article>
+
+          <motion.article
+            whileHover={{ y: -3 }}
+            transition={springTransition}
+            className="glass-panel relative overflow-hidden rounded-[28px] p-5 lg:col-span-4"
+            data-repair-loop
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Active Remediation</p>
+            <h2 className="mt-2 text-xl font-semibold text-slate-900">The Repair Loop</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Our agents use your GitHub tokens to clone, analyze, and patch bugs in real-time.
+            </p>
+
+            <div className="relative mt-4 flex items-center justify-center">
+              {showHeavyVisuals ? (
+                <svg viewBox="0 0 220 220" className="h-52 w-52">
+                  <circle cx="110" cy="110" r="76" stroke="rgb(148 163 184 / 0.35)" strokeWidth="8" fill="none" />
+                  <circle ref={loopPathRef} cx="110" cy="110" r="76" stroke="rgb(14 116 144)" strokeWidth="8" fill="none" strokeLinecap="round" />
+                  <text x="110" y="56" textAnchor="middle" className="fill-slate-700 text-[10px] font-semibold">Clone</text>
+                  <text x="168" y="118" textAnchor="middle" className="fill-slate-700 text-[10px] font-semibold">Analyze</text>
+                  <text x="110" y="180" textAnchor="middle" className="fill-slate-700 text-[10px] font-semibold">PR</text>
+                </svg>
+              ) : (
+                <div className="h-52 w-52 rounded-full border border-slate-300/70 bg-slate-100/80" />
+              )}
+
+              <div
+                ref={prBadgeRef}
+                className="absolute bottom-3 right-3 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700"
+              >
+                Pull Request Submitted ✓
+              </div>
+            </div>
+          </motion.article>
+
+          <motion.article
+            whileHover={{ y: -3 }}
+            transition={springTransition}
+            className="glass-panel rounded-[28px] p-5 lg:col-span-4"
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Deep Logic Logs</p>
+            <h2 className="mt-2 text-xl font-semibold text-slate-900">Webhook Integration</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Watch the thought process of the Cline agent as it navigates your codebase.
+            </p>
+
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {[
+                { label: "Discord", symbol: "✦" },
+                { label: "Slack", symbol: "◻" },
+                { label: "Webhook", symbol: "↻" },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  data-webhook-icon
+                  className="rounded-2xl border border-slate-300/70 bg-white/45 p-4 text-center shadow-sm"
+                  style={{ opacity: 0.4 }}
+                >
+                  <p className="text-lg text-slate-800">{item.symbol}</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-700">{item.label}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="relative mt-4 overflow-hidden rounded-xl border border-slate-300/70 bg-slate-950 p-3">
+              <canvas ref={auraCanvasRef} className="absolute inset-0 h-full w-full" />
+              <div className="relative z-10 font-mono text-[11px] text-slate-200">
+                <p>$ cline --recover --incident=auth-api</p>
+                <p className="text-cyan-300">→ tracing null pointer at /api/v1/auth</p>
+                <p className="text-emerald-300">→ patch generated, tests green, PR opened</p>
+              </div>
+            </div>
+          </motion.article>
         </section>
-      </div>
+      </section>
     </main>
   );
 }
