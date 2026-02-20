@@ -234,31 +234,14 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    const idle =
-      "requestIdleCallback" in window
-        ? (window as Window & {
-            requestIdleCallback: (callback: () => void, options?: { timeout: number }) => number;
-          }).requestIdleCallback(() => {
-            setShowHeavyVisuals(true);
-          }, { timeout: 900 })
-        : window.setTimeout(() => {
-            setShowHeavyVisuals(true);
-          }, 450);
+    const timeoutId = window.setTimeout(() => {
+      setShowHeavyVisuals(true);
+    }, 450);
 
-    idleHeavyVisualRef.current = idle;
+    idleHeavyVisualRef.current = timeoutId;
 
     return () => {
-      if (idleHeavyVisualRef.current === null) {
-        return;
-      }
-
-      if ("cancelIdleCallback" in window) {
-        (
-          window as Window & {
-            cancelIdleCallback: (id: number) => void;
-          }
-        ).cancelIdleCallback(idleHeavyVisualRef.current);
-      } else {
+      if (idleHeavyVisualRef.current !== null) {
         window.clearTimeout(idleHeavyVisualRef.current);
       }
     };
