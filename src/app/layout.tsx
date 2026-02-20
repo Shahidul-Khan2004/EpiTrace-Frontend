@@ -1,14 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Manrope, Playfair_Display } from "next/font/google";
+import { Space_Grotesk } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
 
-const bodyFont = Manrope({
+const bodyFont = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-body",
 });
 
-const headingFont = Playfair_Display({
+const headingFont = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-heading",
 });

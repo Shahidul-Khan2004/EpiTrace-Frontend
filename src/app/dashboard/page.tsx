@@ -325,7 +325,7 @@ export default function DashboardPage() {
       userEmail={session?.user.email}
       onLogout={logout}
     >
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+      <div className="space-y-6">
         <section className="space-y-4 rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>

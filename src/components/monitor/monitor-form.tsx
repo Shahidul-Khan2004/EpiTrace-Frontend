@@ -371,7 +371,7 @@ export function MonitorForm({
     <form className="space-y-6" onSubmit={handleSubmit}>
       {errorMessage ? <Alert message={errorMessage} tone="error" /> : null}
 
-      <div className="space-y-5">
+      <div className="space-y-6">
         <Input
           label="Monitor Name"
           value={state.name}
@@ -400,9 +400,9 @@ export function MonitorForm({
 
         {mode === "create" ? (
           <>
-            <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+            <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
               <p className="text-sm font-semibold text-slate-800">Webhook Configuration</p>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <Button
                   type="button"
                   variant={state.webhookMode === "existing" ? "primary" : "secondary"}
@@ -441,7 +441,7 @@ export function MonitorForm({
                   ))}
                 </Select>
               ) : (
-                <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
                   <Select
                     label="Notification Provider"
                     value={state.notificationProvider}
@@ -481,7 +481,7 @@ export function MonitorForm({
               )}
             </div>
 
-            <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-sm font-medium text-slate-700">
+            <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-sm font-medium text-slate-700">
               <input
                 type="checkbox"
                 checked={state.receivePullRequests}
@@ -501,9 +501,9 @@ export function MonitorForm({
             </label>
 
             {state.receivePullRequests ? (
-              <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+              <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
                 <p className="text-sm font-semibold text-slate-800">GitHub Token Configuration</p>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <Button
                     type="button"
                     variant={state.githubTokenMode === "existing" ? "primary" : "secondary"}
@@ -541,7 +541,7 @@ export function MonitorForm({
                     ))}
                   </Select>
                 ) : (
-                  <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
                     <Input
                       label="New GitHub Token"
                       type="password"
@@ -565,7 +565,7 @@ export function MonitorForm({
           </>
         ) : null}
 
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Select
             label="HTTP Method"
             value={state.method}
@@ -616,7 +616,7 @@ export function MonitorForm({
         ) : null}
 
         {mode === "create" ? (
-          <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-sm font-medium text-slate-700">
+          <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-sm font-medium text-slate-700">
             <input
               type="checkbox"
               checked={state.isActive}
