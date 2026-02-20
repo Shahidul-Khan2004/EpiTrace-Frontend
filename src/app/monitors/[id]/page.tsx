@@ -7,12 +7,12 @@ import { MonitorForm, type MonitorFormSubmission } from "@/components/monitor/mo
 import { MonitorHistoryTable } from "@/components/monitor/monitor-history-table";
 import { StatusPill } from "@/components/monitor/status-pill";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useRequireAuth } from "@/features/auth/use-auth-guards";
 import { GithubTokenError } from "@/features/github-token/errors";
 import { useGithubTokenStore } from "@/features/github-token/use-github-token-store";
 import { ApiError } from "@/lib/api/client";
+import { getMonitorGithubTokenAssociation } from "@/lib/api/github-token";
 import {
   deleteMonitor,
   getMonitorById,
@@ -24,7 +24,6 @@ import {
 } from "@/lib/api/monitor";
 import {
   addWebhookToMonitor,
-  createWebhook,
   listMonitorWebhooks,
   listUserWebhooks,
   removeWebhookFromMonitor,
@@ -39,7 +38,7 @@ import type {
 } from "@/types/api";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 interface FeedbackState {
   tone: "error" | "success" | "info";
@@ -77,27 +76,102 @@ function maskWebhookUrl(webhookUrl: string): string {
   }
 }
 
-function isValidWebhookUrl(value: string): boolean {
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === "https:" || parsed.protocol === "http:";
-  } catch {
-    return false;
-  }
-}
-
 function maskGithubToken(last4: string): string {
   return `****...${last4}`;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function readNonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
 function resolveLinkedGithubTokenId(monitor: Monitor): string | null {
-  if (typeof monitor.github_token_id === "string" && monitor.github_token_id) {
-    return monitor.github_token_id;
+  const monitorRecord = monitor as unknown as Record<string, unknown>;
+
+  const directId =
+    readNonEmptyString(monitorRecord.github_token_id) ??
+    readNonEmptyString(monitorRecord.githubTokenId);
+
+  if (directId) {
+    return directId;
   }
 
-  const withGithubToken = monitor as Monitor & { github_token?: { id?: string | null } };
-  if (typeof withGithubToken.github_token?.id === "string" && withGithubToken.github_token.id) {
-    return withGithubToken.github_token.id;
+  const githubTokenObject = isRecord(monitorRecord.github_token)
+    ? monitorRecord.github_token
+    : isRecord(monitorRecord.githubToken)
+      ? monitorRecord.githubToken
+      : null;
+
+  const nestedTokenId = githubTokenObject
+    ? readNonEmptyString(githubTokenObject.id) ?? readNonEmptyString(githubTokenObject.token_id)
+    : null;
+
+  if (nestedTokenId) {
+    return nestedTokenId;
+  }
+
+  const candidateCollections: unknown[] = [
+    monitorRecord.monitor_github_tokens,
+    monitorRecord.monitorGithubTokens,
+    monitorRecord.github_tokens,
+    monitorRecord.githubTokens,
+  ];
+
+  for (const collection of candidateCollections) {
+    if (!Array.isArray(collection)) {
+      continue;
+    }
+
+    for (const item of collection) {
+      if (!isRecord(item)) {
+        continue;
+      }
+
+      const relationId =
+        readNonEmptyString(item.github_token_id) ?? readNonEmptyString(item.githubTokenId);
+
+      if (relationId) {
+        return relationId;
+      }
+
+      if (isRecord(item.github_token)) {
+        const fromNestedRelation = readNonEmptyString(item.github_token.id);
+        if (fromNestedRelation) {
+          return fromNestedRelation;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+function resolveLinkedGithubTokenIdFromAssociation(payload: unknown): string | null {
+  const items = Array.isArray(payload) ? payload : [payload];
+
+  for (const item of items) {
+    if (!isRecord(item)) {
+      continue;
+    }
+
+    const directId =
+      readNonEmptyString(item.github_token_id) ??
+      readNonEmptyString(item.githubTokenId) ??
+      readNonEmptyString(item.id);
+
+    if (directId) {
+      return directId;
+    }
+
+    if (isRecord(item.github_token)) {
+      const nestedId = readNonEmptyString(item.github_token.id);
+      if (nestedId) {
+        return nestedId;
+      }
+    }
   }
 
   return null;
@@ -125,13 +199,10 @@ export default function MonitorDetailsPage() {
   const [linkedGithubTokenId, setLinkedGithubTokenId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [isCreatingWebhook, setIsCreatingWebhook] = useState(false);
   const [isAttachingWebhook, setIsAttachingWebhook] = useState(false);
   const [removingWebhookId, setRemovingWebhookId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
-  const [newWebhookProvider, setNewWebhookProvider] = useState<NotificationProvider>("slack");
-  const [newWebhookUrl, setNewWebhookUrl] = useState("");
   const [selectedWebhookId, setSelectedWebhookId] = useState("");
   const [selectedGithubTokenId, setSelectedGithubTokenId] = useState("");
 
@@ -171,22 +242,28 @@ export default function MonitorDetailsPage() {
       setHistory(monitorHistory);
       setUserWebhooks(allWebhooks);
       setMonitorWebhooks(linkedWebhooks);
-      const resolvedLinkedTokenId = resolveLinkedGithubTokenId(monitorDetails);
-      const hasExplicitLinkedToken = Object.prototype.hasOwnProperty.call(
-        monitorDetails,
-        "github_token_id",
+
+      let resolvedLinkedTokenId: string | null = null;
+
+      try {
+        const association = await getMonitorGithubTokenAssociation(token, monitorId);
+        resolvedLinkedTokenId = resolveLinkedGithubTokenIdFromAssociation(association);
+      } catch (error) {
+        if (handleAuthError(error)) {
+          return;
+        }
+      }
+
+      if (!resolvedLinkedTokenId) {
+        resolvedLinkedTokenId = resolveLinkedGithubTokenId(monitorDetails);
+      }
+
+      setLinkedGithubTokenId(resolvedLinkedTokenId);
+      setSelectedGithubTokenId(
+        resolvedLinkedTokenId && allGithubTokens.some((item) => item.id === resolvedLinkedTokenId)
+          ? resolvedLinkedTokenId
+          : "",
       );
-      setLinkedGithubTokenId((previous) =>
-        hasExplicitLinkedToken ? resolvedLinkedTokenId : resolvedLinkedTokenId ?? previous,
-      );
-      setSelectedGithubTokenId((previous) => {
-        const nextTokenId = hasExplicitLinkedToken
-          ? resolvedLinkedTokenId ?? ""
-          : resolvedLinkedTokenId ?? previous;
-        return nextTokenId && allGithubTokens.some((item) => item.id === nextTokenId)
-          ? nextTokenId
-          : "";
-      });
     } catch (error) {
       if (handleAuthError(error)) {
         return;
@@ -248,6 +325,7 @@ export default function MonitorDetailsPage() {
     () => githubTokens.find((item) => item.id === linkedGithubTokenId) ?? null,
     [githubTokens, linkedGithubTokenId],
   );
+  const hasLinkedGithubToken = Boolean(linkedGithubTokenId);
   const hasLinkedWebhook = monitorWebhooks.length > 0;
 
   const linkedTokenLabel = currentlyLinkedGithubToken
@@ -279,69 +357,6 @@ export default function MonitorDetailsPage() {
       }
     },
     [handleAuthError, loadData, monitorId, token],
-  );
-
-  const handleCreateAndAttachWebhook = useCallback(
-    async (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-
-      if (!token || !monitorId) {
-        return;
-      }
-
-      if (hasLinkedWebhook) {
-        setFeedback({
-          tone: "error",
-          message: "Only one webhook can be linked to a monitor. Remove the current webhook first.",
-        });
-        return;
-      }
-
-      const normalizedUrl = newWebhookUrl.trim();
-      if (!normalizedUrl) {
-        setFeedback({ tone: "error", message: "Webhook URL is required." });
-        return;
-      }
-
-      if (!isValidWebhookUrl(normalizedUrl)) {
-        setFeedback({ tone: "error", message: "Webhook URL must be a valid HTTP(S) URL." });
-        return;
-      }
-
-      setIsCreatingWebhook(true);
-      setFeedback(null);
-      let createdWebhook: UserWebhook | null = null;
-
-      try {
-        createdWebhook = await createWebhook(token, {
-          provider: newWebhookProvider,
-          webhook_url: normalizedUrl,
-        });
-
-        await addWebhookToMonitor(token, monitorId, createdWebhook.id);
-        setNewWebhookUrl("");
-        setFeedback({ tone: "success", message: "Webhook created and linked to this monitor." });
-        await loadData();
-      } catch (error) {
-        if (handleAuthError(error)) {
-          return;
-        }
-
-        if (createdWebhook) {
-          setFeedback({
-            tone: "error",
-            message: `Webhook created, but linking failed: ${extractErrorMessage(error)}`,
-          });
-          await loadData();
-          return;
-        }
-
-        setFeedback({ tone: "error", message: extractErrorMessage(error) });
-      } finally {
-        setIsCreatingWebhook(false);
-      }
-    },
-    [handleAuthError, hasLinkedWebhook, loadData, monitorId, newWebhookProvider, newWebhookUrl, token],
   );
 
   const handleAttachWebhook = useCallback(async () => {
@@ -664,7 +679,7 @@ export default function MonitorDetailsPage() {
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-slate-900">Code Fix Configuration</h2>
+            <h2 className="text-xl font-semibold text-slate-900">GitHub token configuration</h2>
             <p className="text-sm text-slate-600">
               Link a GitHub token to enable code-fix agent actions for this monitor.
             </p>
@@ -709,7 +724,7 @@ export default function MonitorDetailsPage() {
               disabled={
                 !selectedGithubTokenId ||
                 activeGithubTokens.length === 0 ||
-                Boolean(linkedGithubTokenId)
+                hasLinkedGithubToken
               }
               className="w-full sm:w-auto"
             >
@@ -749,6 +764,21 @@ export default function MonitorDetailsPage() {
                   Unlink
                 </Button>
               </article>
+            ) : hasLinkedGithubToken ? (
+              <article className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-900">A GitHub token is linked</p>
+                <p className="text-xs text-slate-500">
+                  Linked token ID: <span className="font-mono">{linkedGithubTokenId}</span>
+                </p>
+                <Button
+                  variant="danger"
+                  onClick={() => void handleUnlinkGithubToken()}
+                  loading={isUnlinkingGithubToken}
+                  className="w-full sm:w-auto"
+                >
+                  Unlink
+                </Button>
+              </article>
             ) : (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
                 No GitHub token linked to this monitor.
@@ -763,7 +793,7 @@ export default function MonitorDetailsPage() {
           <div>
             <h2 className="text-xl font-semibold text-slate-900">Notification webhooks</h2>
             <p className="text-sm text-slate-600">
-              Create webhooks and link them to this monitor using <code className="rounded bg-slate-100 px-1 py-0.5">/webhook</code> routes.
+              Link a webhook to receive monitor alerts for this monitor.
             </p>
           </div>
           <Button
@@ -777,49 +807,10 @@ export default function MonitorDetailsPage() {
         </div>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <form
-            className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4"
-            onSubmit={handleCreateAndAttachWebhook}
-          >
-            <h3 className="text-base font-semibold text-slate-900">Create and attach webhook</h3>
-            <Select
-              label="Provider"
-              value={newWebhookProvider}
-              onChange={(event) =>
-                setNewWebhookProvider(event.target.value as NotificationProvider)
-              }
-            >
-              <option value="slack">Slack</option>
-              <option value="discord">Discord</option>
-            </Select>
-            <Input
-              label="Webhook URL"
-              type="url"
-              placeholder="https://hooks.slack.com/services/XXX/YYY/ZZZ"
-              value={newWebhookUrl}
-              onChange={(event) => setNewWebhookUrl(event.target.value)}
-              disabled={hasLinkedWebhook}
-              required
-            />
-            <Button
-              type="submit"
-              loading={isCreatingWebhook}
-              disabled={hasLinkedWebhook}
-              className="w-full sm:w-auto"
-            >
-              Create + Attach
-            </Button>
-            {hasLinkedWebhook ? (
-              <p className="text-sm text-slate-600">
-                This monitor already has a webhook linked. Remove it before attaching another one.
-              </p>
-            ) : null}
-          </form>
-
           <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
-            <h3 className="text-base font-semibold text-slate-900">Attach existing webhook</h3>
+            <h3 className="text-base font-semibold text-slate-900">Link webhook to monitor</h3>
             <Select
-              label="Active user webhooks"
+              label="Available webhooks"
               value={selectedWebhookId}
               onChange={(event) => setSelectedWebhookId(event.target.value)}
               disabled={attachableWebhooks.length === 0 || hasLinkedWebhook}
@@ -828,8 +819,8 @@ export default function MonitorDetailsPage() {
                 {hasLinkedWebhook
                   ? "A webhook is already linked"
                   : attachableWebhooks.length === 0
-                  ? "No webhook available to attach"
-                  : "Select a webhook"}
+                    ? "No webhook available to attach"
+                    : "Select a webhook"}
               </option>
               {attachableWebhooks.map((webhook) => (
                 <option key={webhook.id} value={webhook.id}>
@@ -844,53 +835,50 @@ export default function MonitorDetailsPage() {
               disabled={!selectedWebhookId || attachableWebhooks.length === 0 || hasLinkedWebhook}
               className="w-full sm:w-auto"
             >
-              Attach Selected Webhook
+              Link Webhook
             </Button>
             {userWebhooks.length === 0 ? (
               <p className="text-sm text-slate-600">
-                No active user webhooks exist yet. Create one in the left panel.
+                No active webhooks found. Create one in{" "}
+                <Link
+                  href="/settings/webhooks"
+                  className="font-semibold text-slate-900 underline decoration-slate-300 underline-offset-4"
+                >
+                  Webhooks
+                </Link>
+                .
               </p>
             ) : null}
           </div>
-        </div>
 
-        <div className="mt-5 space-y-3">
-          <h3 className="text-base font-semibold text-slate-900">Linked to this monitor</h3>
-
-          {monitorWebhooks.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
-              No webhooks linked yet.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {monitorWebhooks.map((webhook) => (
-                <article
-                  key={webhook.id}
-                  className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4"
+          <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+            <h3 className="text-base font-semibold text-slate-900">Currently linked webhook</h3>
+            {monitorWebhooks[0] ? (
+              <article className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-900">
+                  {formatProvider(monitorWebhooks[0].provider)}
+                </p>
+                <p className="break-all text-sm text-slate-600">
+                  {maskWebhookUrl(monitorWebhooks[0].webhook_url)}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Created {formatDate(monitorWebhooks[0].created_at)}
+                </p>
+                <Button
+                  variant="danger"
+                  loading={removingWebhookId === monitorWebhooks[0].id}
+                  onClick={() => void handleRemoveWebhook(monitorWebhooks[0].id)}
+                  className="w-full sm:w-auto"
                 >
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-slate-900">
-                      {formatProvider(webhook.provider)}
-                    </p>
-                    <p className="break-all text-sm text-slate-600">
-                      {maskWebhookUrl(webhook.webhook_url)}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      Created {formatDate(webhook.created_at)}
-                    </p>
-                  </div>
-                  <Button
-                    variant="danger"
-                    loading={removingWebhookId === webhook.id}
-                    onClick={() => void handleRemoveWebhook(webhook.id)}
-                    className="w-full sm:w-auto"
-                  >
-                    Remove
-                  </Button>
-                </article>
-              ))}
-            </div>
-          )}
+                  Unlink
+                </Button>
+              </article>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+                No webhook linked to this monitor.
+              </div>
+            )}
+          </div>
         </div>
       </section>
 

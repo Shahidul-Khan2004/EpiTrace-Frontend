@@ -74,3 +74,14 @@ export function unlinkTokenFromMonitor(token: string, monitorId: string, tokenId
     },
   );
 }
+
+export function getMonitorGithubTokenAssociation(token: string, monitorId: string) {
+  return apiRequest<ApiSuccessResponse<MonitorGithubTokenAssociation | MonitorGithubTokenAssociation[]>>(
+    `/github-token/monitor/${monitorId}`,
+    {
+      method: "GET",
+      token,
+      requiresAuth: true,
+    },
+  ).then((response) => response.data);
+}
