@@ -69,7 +69,7 @@ export function MonitorCard({
 
       <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
         <Button variant="ghost" onClick={onOpen} className="w-full sm:w-auto">
-          View History
+          View Details
         </Button>
 
         <MonitorActions

@@ -311,25 +311,28 @@ export function LiveCodeWorkerLogs({
   return (
     <section className="rounded-3xl border border-slate-200 bg-white/90 shadow-sm">
       <div className="sticky top-0 z-10 rounded-t-3xl border-b border-slate-200 bg-white/90 p-4 backdrop-blur sm:p-5">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_1fr_auto] lg:items-end">
-          <Input
-            label="Server base URL"
-            placeholder="http://localhost:8080"
-            value={baseUrl}
-            onChange={(event) => setBaseUrl(event.target.value)}
-          />
-          <Input
-            label="Job ID (optional)"
-            placeholder="123"
-            value={jobId}
-            onChange={(event) => setJobId(event.target.value)}
-          />
+        <div className="space-y-3">
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input
+              label="Server base URL"
+              placeholder="http://localhost:8080"
+              value={baseUrl}
+              onChange={(event) => setBaseUrl(event.target.value)}
+            />
+
+            <Input
+              label="Job ID (optional)"
+              placeholder="123"
+              value={jobId}
+              onChange={(event) => setJobId(event.target.value)}
+            />
+          </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" onClick={() => connect(baseUrl, jobId, true)}>
               Connect
             </Button>
-            <Button variant="ghost" onClick={disconnect}>
+            <Button variant="secondary" onClick={disconnect}>
               Disconnect
             </Button>
             <Button variant="ghost" onClick={() => setLogs([])}>
@@ -337,7 +340,7 @@ export function LiveCodeWorkerLogs({
             </Button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setAutoScroll((previous) => !previous)}

@@ -10,7 +10,7 @@ export function Textarea({ label, className, error, id, ...props }: TextareaProp
   const textareaId = id ?? label.toLowerCase().replace(/\s+/g, "-");
 
   return (
-    <label className="space-y-2" htmlFor={textareaId}>
+    <label className="space-y-4" htmlFor={textareaId}>
       <span className="text-sm font-medium text-slate-700">{label}</span>
       <textarea
         id={textareaId}

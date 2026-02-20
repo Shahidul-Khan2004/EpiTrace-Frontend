@@ -662,13 +662,9 @@ export default function MonitorDetailsPage() {
         </dl>
       </section>
 
-      <section className="mt-6 rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-5">
+      <section className="mt-6 space-y-6 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm sm:p-8">
         <h2 className="text-xl font-semibold text-slate-900">Update monitor</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Uses <code className="rounded bg-slate-100 px-1 py-0.5">PATCH /monitor/:id</code>.
-        </p>
-
-        <div className="mt-4">
+        <div className="pt-1">
           <MonitorForm
             mode="update"
             initialValues={monitor}
@@ -735,7 +731,7 @@ export default function MonitorDetailsPage() {
                 activeGithubTokens.length === 0 ||
                 hasLinkedGithubToken
               }
-              className="w-full sm:w-auto"
+              className="mt-2 w-full sm:w-auto"
             >
               Link Token
             </Button>
@@ -842,7 +838,7 @@ export default function MonitorDetailsPage() {
               onClick={() => void handleAttachWebhook()}
               loading={isAttachingWebhook}
               disabled={!selectedWebhookId || attachableWebhooks.length === 0 || hasLinkedWebhook}
-              className="w-full sm:w-auto"
+              className="mt-2 w-full sm:w-auto"
             >
               Link Webhook
             </Button>

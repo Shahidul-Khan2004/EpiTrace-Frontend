@@ -10,7 +10,7 @@ export function Select({ label, className, error, id, children, ...props }: Sele
   const selectId = id ?? label.toLowerCase().replace(/\s+/g, "-");
 
   return (
-    <label className="space-y-2" htmlFor={selectId}>
+    <label className="space-y-4" htmlFor={selectId}>
       <span className="text-sm font-medium text-slate-700">{label}</span>
       <select
         id={selectId}

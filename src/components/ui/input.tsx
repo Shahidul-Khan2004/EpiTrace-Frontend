@@ -10,7 +10,7 @@ export function Input({ label, className, error, id, ...props }: InputProps) {
   const inputId = id ?? label.toLowerCase().replace(/\s+/g, "-");
 
   return (
-    <label className="space-y-2" htmlFor={inputId}>
+    <label className="space-y-4" htmlFor={inputId}>
       <span className="text-sm font-medium text-slate-700">{label}</span>
       <input
         id={inputId}

@@ -345,7 +345,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <section className="space-y-4 rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm sm:p-5">
+        <section className="space-y-6 rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-xl font-semibold text-slate-900">Create monitor</h2>
@@ -355,15 +355,17 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <MonitorForm
-            mode="create"
-            onSubmit={handleCreate}
-            isSubmitting={isCreating}
-            githubTokens={activeGithubTokens}
-            userWebhooks={userWebhooks}
-            onCreateGithubToken={handleCreateGithubToken}
-            onCreateWebhook={handleCreateWebhook}
-          />
+          <div className="pt-1">
+            <MonitorForm
+              mode="create"
+              onSubmit={handleCreate}
+              isSubmitting={isCreating}
+              githubTokens={activeGithubTokens}
+              userWebhooks={userWebhooks}
+              onCreateGithubToken={handleCreateGithubToken}
+              onCreateWebhook={handleCreateWebhook}
+            />
+          </div>
         </section>
       </div>
 

@@ -136,6 +136,7 @@ export function MonitorForm({
   const [isCreatingGithubToken, setIsCreatingGithubToken] = useState(false);
   const [isCreatingWebhook, setIsCreatingWebhook] = useState(false);
   const [newGithubAccessToken, setNewGithubAccessToken] = useState("");
+  const updateControlClassName = mode === "update" ? "py-2.5" : undefined;
 
   const stateFromInitialValues = useMemo(() => buildState(initialValues), [initialValues]);
 
@@ -368,35 +369,93 @@ export function MonitorForm({
   };
 
   return (
-    <form className="space-y-6" onSubmit={handleSubmit}>
+    <form className="space-y-8" onSubmit={handleSubmit}>
       {errorMessage ? <Alert message={errorMessage} tone="error" /> : null}
 
-      <div className="space-y-6">
-        <Input
-          label="Monitor Name"
-          value={state.name}
-          onChange={(event) => updateField("name", event.target.value)}
-          placeholder="Primary API"
-          required
-        />
+      <div className="space-y-5">
+        <div className="space-y-4">
+          <Input
+            label="Monitor Name"
+            value={state.name}
+            onChange={(event) => updateField("name", event.target.value)}
+            placeholder="Primary API"
+            className={updateControlClassName}
+            required
+          />
 
-        <Input
-          label="Target URL"
-          type="url"
-          value={state.url}
-          onChange={(event) => updateField("url", event.target.value)}
-          placeholder="https://example.com/health"
-          required
-        />
+          <Input
+            label="Target URL"
+            type="url"
+            value={state.url}
+            onChange={(event) => updateField("url", event.target.value)}
+            placeholder="https://example.com/health"
+            className={updateControlClassName}
+            required
+          />
 
-        <Input
-          label="Repository Link"
-          type="url"
-          value={state.repoLink}
-          onChange={(event) => updateField("repoLink", event.target.value)}
-          placeholder="https://github.com/org/repository"
-          required
-        />
+          <Input
+            label="Repository Link"
+            type="url"
+            value={state.repoLink}
+            onChange={(event) => updateField("repoLink", event.target.value)}
+            placeholder="https://github.com/org/repository"
+            className={updateControlClassName}
+            required
+          />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Select
+              label="HTTP Method"
+              value={state.method}
+              onChange={(event) => updateField("method", event.target.value as HttpMethod)}
+              className={updateControlClassName}
+            >
+              <option value="GET">GET</option>
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+              <option value="PATCH">PATCH</option>
+              <option value="DELETE">DELETE</option>
+            </Select>
+
+            <Input
+              label="Timeout (seconds)"
+              type="number"
+              min={1}
+              step={1}
+              value={state.timeout}
+              onChange={(event) => updateField("timeout", event.target.value)}
+              className={updateControlClassName}
+              required
+            />
+          </div>
+
+          <Input
+            label="Check Interval (seconds)"
+            type="number"
+            min={10}
+            step={1}
+            value={state.checkInterval}
+            onChange={(event) => updateField("checkInterval", event.target.value)}
+            className={updateControlClassName}
+            required
+          />
+
+          <Textarea
+            label="Request Headers (JSON, optional)"
+            value={state.requestHeader}
+            onChange={(event) => updateField("requestHeader", event.target.value)}
+            placeholder='{"Authorization": "Bearer token"}'
+          />
+
+          {["POST", "PUT", "PATCH"].includes(state.method) ? (
+            <Textarea
+              label="Request Body (JSON, optional)"
+              value={state.requestBody}
+              onChange={(event) => updateField("requestBody", event.target.value)}
+              placeholder='{"key": "value"}'
+            />
+          ) : null}
+        </div>
 
         {mode === "create" ? (
           <>
@@ -563,56 +622,6 @@ export function MonitorForm({
               </div>
             ) : null}
           </>
-        ) : null}
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Select
-            label="HTTP Method"
-            value={state.method}
-            onChange={(event) => updateField("method", event.target.value as HttpMethod)}
-          >
-            <option value="GET">GET</option>
-            <option value="POST">POST</option>
-            <option value="PUT">PUT</option>
-            <option value="PATCH">PATCH</option>
-            <option value="DELETE">DELETE</option>
-          </Select>
-
-          <Input
-            label="Timeout (seconds)"
-            type="number"
-            min={1}
-            step={1}
-            value={state.timeout}
-            onChange={(event) => updateField("timeout", event.target.value)}
-            required
-          />
-        </div>
-
-        <Input
-          label="Check Interval (seconds)"
-          type="number"
-          min={10}
-          step={1}
-          value={state.checkInterval}
-          onChange={(event) => updateField("checkInterval", event.target.value)}
-          required
-        />
-
-        <Textarea
-          label="Request Headers (JSON, optional)"
-          value={state.requestHeader}
-          onChange={(event) => updateField("requestHeader", event.target.value)}
-          placeholder='{"Authorization": "Bearer token"}'
-        />
-
-        {["POST", "PUT", "PATCH"].includes(state.method) ? (
-          <Textarea
-            label="Request Body (JSON, optional)"
-            value={state.requestBody}
-            onChange={(event) => updateField("requestBody", event.target.value)}
-            placeholder='{"key": "value"}'
-          />
         ) : null}
 
         {mode === "create" ? (
