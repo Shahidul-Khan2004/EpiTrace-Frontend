@@ -554,13 +554,22 @@ export default function MonitorDetailsPage() {
       onLogout={logout}
     >
       <div className="mb-6">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-[9px] text-sm font-semibold text-slate-900 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
-        >
-          <span aria-hidden>&larr;</span>
-          <span>Back to dashboard</span>
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-[9px] text-sm font-semibold text-slate-900 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+          >
+            <span aria-hidden>&larr;</span>
+            <span>Back to dashboard</span>
+          </Link>
+
+          <Link
+            href={`/monitors/${monitor.id}/live-logs`}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-[9px] text-sm font-semibold text-slate-900 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+          >
+            <span>Live Logs</span>
+          </Link>
+        </div>
       </div>
 
       {feedback ? <Alert message={feedback.message} tone={feedback.tone} /> : null}

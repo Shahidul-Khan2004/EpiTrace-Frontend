@@ -158,8 +158,23 @@ export function LiveCodeWorkerLogs({
       setStatus("connecting");
       setStatusText(`Connecting to ${streamUrl}`);
 
-      const source = new EventSource(streamUrl);
+      let source: EventSource;
+
+      try {
+        source = new EventSource(streamUrl);
+      } catch {
+        setStatus("error");
+        setStatusText("Invalid stream URL. Check the server base URL.");
+        return;
+      }
+
       eventSourceRef.current = source;
+
+      source.onopen = () => {
+        setStatus("connected");
+        setStatusText("Connected");
+        setRetryAttempt(0);
+      };
 
       source.addEventListener("connected", () => {
         setStatus("connected");
