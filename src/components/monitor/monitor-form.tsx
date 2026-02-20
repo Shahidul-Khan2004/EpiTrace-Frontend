@@ -14,6 +14,7 @@ import type {
   Monitor,
   NotificationProvider,
   UpdateMonitorPayload,
+  UserWebhook,
 } from "@/types/api";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
@@ -21,6 +22,12 @@ interface MonitorFormProps {
   mode: "create" | "update";
   initialValues?: Partial<Monitor>;
   githubTokens?: GithubToken[];
+  userWebhooks?: UserWebhook[];
+  onCreateGithubToken?: (accessToken: string) => Promise<GithubToken>;
+  onCreateWebhook?: (
+    provider: NotificationProvider,
+    webhookUrl: string,
+  ) => Promise<UserWebhook>;
   onSubmit: (payload: MonitorFormSubmission) => Promise<void>;
   isSubmitting?: boolean;
   submitLabel?: string;
@@ -30,9 +37,9 @@ export type MonitorFormSubmission =
   | {
       mode: "create";
       monitor: CreateMonitorPayload;
-      webhook: CreateWebhookPayload;
+      webhook?: CreateWebhookPayload;
+      webhookId?: string;
       githubTokenId?: string;
-      newGithubTokenAccessToken?: string;
     }
   | {
       mode: "update";
@@ -44,13 +51,15 @@ interface MonitorFormState {
   url: string;
   repoLink: string;
   method: HttpMethod;
+  webhookMode: "existing" | "new";
+  selectedWebhookId: string;
   notificationProvider: NotificationProvider | "";
   notificationWebhookUrl: string;
   receivePullRequests: boolean;
+  githubTokenMode: "existing" | "new";
   requestHeader: string;
   requestBody: string;
   selectedGithubTokenId: string;
-  newGithubTokenAccessToken: string;
   checkInterval: string;
   timeout: string;
   isActive: boolean;
@@ -63,13 +72,15 @@ const defaultState: MonitorFormState = {
   url: "",
   repoLink: "",
   method: "GET",
+  webhookMode: "existing",
+  selectedWebhookId: "",
   notificationProvider: "",
   notificationWebhookUrl: "",
   receivePullRequests: false,
+  githubTokenMode: "existing",
   requestHeader: "",
   requestBody: "",
   selectedGithubTokenId: "",
-  newGithubTokenAccessToken: "",
   checkInterval: "10",
   timeout: "5",
   isActive: false,
@@ -94,13 +105,15 @@ function buildState(initialValues?: Partial<Monitor>): MonitorFormState {
     url: initialValues.url ?? "",
     repoLink: initialValues.repo_link ?? "",
     method: initialValues.method ?? "GET",
+    webhookMode: "existing",
+    selectedWebhookId: "",
     notificationProvider: "",
     notificationWebhookUrl: "",
     receivePullRequests: false,
+    githubTokenMode: "existing",
     requestHeader: prettifyJson(initialValues.request_header),
     requestBody: prettifyJson(initialValues.request_body),
     selectedGithubTokenId: "",
-    newGithubTokenAccessToken: "",
     checkInterval: String(initialValues.check_interval ?? 10),
     timeout: String(initialValues.timeout ?? 5),
     isActive: Boolean(initialValues.is_active),
@@ -111,12 +124,18 @@ export function MonitorForm({
   mode,
   initialValues,
   githubTokens = [],
+  userWebhooks = [],
+  onCreateGithubToken,
+  onCreateWebhook,
   onSubmit,
   isSubmitting = false,
   submitLabel,
 }: MonitorFormProps) {
   const [state, setState] = useState<MonitorFormState>(() => buildState(initialValues));
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isCreatingGithubToken, setIsCreatingGithubToken] = useState(false);
+  const [isCreatingWebhook, setIsCreatingWebhook] = useState(false);
+  const [newGithubAccessToken, setNewGithubAccessToken] = useState("");
 
   const stateFromInitialValues = useMemo(() => buildState(initialValues), [initialValues]);
 
@@ -136,7 +155,7 @@ export function MonitorForm({
     const timeout = Number(state.timeout);
     const notificationProvider = state.notificationProvider;
     const notificationWebhookUrl = state.notificationWebhookUrl.trim();
-    const newGithubTokenAccessToken = state.newGithubTokenAccessToken.trim();
+    const methodSupportsBody = ["POST", "PUT", "PATCH"].includes(state.method);
 
     if (!state.name.trim()) {
       setErrorMessage("Name is required.");
@@ -163,49 +182,50 @@ export function MonitorForm({
       return;
     }
 
-    if (mode === "create" && !notificationProvider) {
-      setErrorMessage("Notification provider is required.");
-      return;
+    if (mode === "create") {
+      if (state.webhookMode === "existing") {
+        if (!state.selectedWebhookId) {
+          setErrorMessage("Select an existing webhook or click Create Webhook.");
+          return;
+        }
+      } else {
+        if (!notificationProvider) {
+          setErrorMessage("Notification provider is required.");
+          return;
+        }
+
+        if (
+          notificationProvider &&
+          !notificationProviders.includes(notificationProvider as NotificationProvider)
+        ) {
+          setErrorMessage("Notification provider must be either slack or discord.");
+          return;
+        }
+
+        if (!notificationWebhookUrl) {
+          setErrorMessage("Notification webhook URL is required.");
+          return;
+        }
+
+        if (!isValidWebhookUrl(notificationWebhookUrl)) {
+          setErrorMessage("Notification webhook URL must be a valid URL.");
+          return;
+        }
+      }
     }
 
-    if (
-      notificationProvider &&
-      !notificationProviders.includes(notificationProvider as NotificationProvider)
-    ) {
-      setErrorMessage("Notification provider must be either slack or discord.");
-      return;
-    }
-
-    if (mode === "create" && !notificationWebhookUrl) {
-      setErrorMessage("Notification webhook URL is required.");
-      return;
-    }
-
-    if (notificationWebhookUrl && !isValidWebhookUrl(notificationWebhookUrl)) {
-      setErrorMessage("Notification webhook URL must be a valid URL.");
-      return;
-    }
-
-    if (state.selectedGithubTokenId && newGithubTokenAccessToken) {
-      setErrorMessage("Select an existing GitHub token or enter a new one, not both.");
-      return;
-    }
-
-    if (
-      mode === "create" &&
-      state.receivePullRequests &&
-      !state.selectedGithubTokenId &&
-      !newGithubTokenAccessToken
-    ) {
-      setErrorMessage(
-        "To receive pull requests, select an existing GitHub token or provide a new one.",
-      );
-      return;
+    if (mode === "create" && state.receivePullRequests) {
+      if (!state.selectedGithubTokenId) {
+        setErrorMessage("Select an existing GitHub token or create a new one.");
+        return;
+      }
     }
 
     try {
       const requestHeader = parseJsonField(state.requestHeader, "Request headers");
-      const requestBody = parseJsonField(state.requestBody, "Request body");
+      const requestBody = methodSupportsBody
+        ? parseJsonField(state.requestBody, "Request body")
+        : undefined;
       if (
         requestHeader !== undefined &&
         (typeof requestHeader !== "object" || requestHeader === null || Array.isArray(requestHeader))
@@ -229,17 +249,17 @@ export function MonitorForm({
             timeout,
             is_active: state.isActive,
           },
-          webhook: {
-            provider: notificationProvider as NotificationProvider,
-            webhook_url: notificationWebhookUrl,
-          },
+          webhook:
+            state.webhookMode === "new"
+              ? {
+                  provider: notificationProvider as NotificationProvider,
+                  webhook_url: notificationWebhookUrl,
+                }
+              : undefined,
+          webhookId: state.webhookMode === "existing" ? state.selectedWebhookId : undefined,
           githubTokenId:
             state.receivePullRequests && state.selectedGithubTokenId
               ? state.selectedGithubTokenId
-              : undefined,
-          newGithubTokenAccessToken:
-            state.receivePullRequests && newGithubTokenAccessToken
-              ? newGithubTokenAccessToken
               : undefined,
         });
 
@@ -267,6 +287,83 @@ export function MonitorForm({
       }
 
       setErrorMessage("Unable to submit monitor form.");
+    }
+  };
+
+  const handleCreateGithubToken = async () => {
+    if (!onCreateGithubToken) {
+      return;
+    }
+
+    const normalizedAccessToken = newGithubAccessToken.trim();
+
+    if (!normalizedAccessToken) {
+      return;
+    }
+
+    setIsCreatingGithubToken(true);
+    setErrorMessage(null);
+
+    try {
+      const createdToken = await onCreateGithubToken(normalizedAccessToken);
+      updateField("selectedGithubTokenId", createdToken.id);
+      setNewGithubAccessToken("");
+      updateField("githubTokenMode", "existing");
+    } catch (error) {
+      if (error instanceof Error) {
+        setErrorMessage(error.message);
+      } else {
+        setErrorMessage("Failed to create GitHub token.");
+      }
+    } finally {
+      setIsCreatingGithubToken(false);
+    }
+  };
+
+  const handleCreateWebhook = async () => {
+    if (!onCreateWebhook) {
+      return;
+    }
+
+    const provider = state.notificationProvider;
+    const webhookUrl = state.notificationWebhookUrl.trim();
+
+    if (!provider) {
+      setErrorMessage("Notification provider is required.");
+      return;
+    }
+
+    if (!notificationProviders.includes(provider as NotificationProvider)) {
+      setErrorMessage("Notification provider must be either slack or discord.");
+      return;
+    }
+
+    if (!webhookUrl) {
+      setErrorMessage("Notification webhook URL is required.");
+      return;
+    }
+
+    if (!isValidWebhookUrl(webhookUrl)) {
+      setErrorMessage("Notification webhook URL must be a valid URL.");
+      return;
+    }
+
+    setIsCreatingWebhook(true);
+    setErrorMessage(null);
+
+    try {
+      const createdWebhook = await onCreateWebhook(provider, webhookUrl);
+      updateField("selectedWebhookId", createdWebhook.id);
+      updateField("webhookMode", "existing");
+      updateField("notificationWebhookUrl", "");
+    } catch (error) {
+      if (error instanceof Error) {
+        setErrorMessage(error.message);
+      } else {
+        setErrorMessage("Failed to create webhook.");
+      }
+    } finally {
+      setIsCreatingWebhook(false);
     }
   };
 
@@ -303,30 +400,85 @@ export function MonitorForm({
 
         {mode === "create" ? (
           <>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Select
-                label="Notification Provider"
-                value={state.notificationProvider}
-                onChange={(event) =>
-                  updateField("notificationProvider", event.target.value as NotificationProvider | "")
-                }
-                required
-              >
-                <option value="" disabled>
-                  Select a provider
-                </option>
-                <option value="slack">Slack</option>
-                <option value="discord">Discord</option>
-              </Select>
+            <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+              <p className="text-sm font-semibold text-slate-800">Webhook Configuration</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant={state.webhookMode === "existing" ? "primary" : "secondary"}
+                  onClick={() => updateField("webhookMode", "existing")}
+                  disabled={userWebhooks.length === 0}
+                  className="w-full"
+                >
+                  Attach Existing
+                </Button>
+                <Button
+                  type="button"
+                  variant={state.webhookMode === "new" ? "primary" : "secondary"}
+                  onClick={() => updateField("webhookMode", "new")}
+                  className="w-full"
+                >
+                  Create Webhook
+                </Button>
+              </div>
 
-              <Input
-                label="Notification Webhook URL"
-                type="url"
-                value={state.notificationWebhookUrl}
-                onChange={(event) => updateField("notificationWebhookUrl", event.target.value)}
-                placeholder="https://hooks.slack.com/services/XXX/YYY/ZZZ"
-                required
-              />
+              {state.webhookMode === "existing" ? (
+                <Select
+                  label="Available Webhooks"
+                  value={state.selectedWebhookId}
+                  onChange={(event) => updateField("selectedWebhookId", event.target.value)}
+                  disabled={userWebhooks.length === 0}
+                >
+                  <option value="">
+                    {userWebhooks.length === 0
+                      ? "No active webhook available"
+                      : "Select an existing webhook"}
+                  </option>
+                  {userWebhooks.map((webhook) => (
+                    <option key={webhook.id} value={webhook.id}>
+                      {webhook.provider} - {webhook.webhook_url}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                  <Select
+                    label="Notification Provider"
+                    value={state.notificationProvider}
+                    onChange={(event) =>
+                      updateField("notificationProvider", event.target.value as NotificationProvider | "")
+                    }
+                    required
+                  >
+                    <option value="" disabled>
+                      Select a provider
+                    </option>
+                    <option value="slack">Slack</option>
+                    <option value="discord">Discord</option>
+                  </Select>
+
+                  <Input
+                    label="Notification Webhook URL"
+                    type="url"
+                    value={state.notificationWebhookUrl}
+                    onChange={(event) => updateField("notificationWebhookUrl", event.target.value)}
+                    placeholder="https://hooks.slack.com/services/XXX/YYY/ZZZ"
+                    required
+                  />
+                  <Button
+                    type="button"
+                    loading={isCreatingWebhook}
+                    disabled={
+                      isSubmitting ||
+                      !state.notificationProvider ||
+                      !state.notificationWebhookUrl.trim()
+                    }
+                    onClick={() => void handleCreateWebhook()}
+                  >
+                    Create Webhook
+                  </Button>
+                </div>
+              )}
             </div>
 
             <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-sm font-medium text-slate-700">
@@ -339,7 +491,8 @@ export function MonitorForm({
 
                   if (!checked) {
                     updateField("selectedGithubTokenId", "");
-                    updateField("newGithubTokenAccessToken", "");
+                    updateField("githubTokenMode", "existing");
+                    setNewGithubAccessToken("");
                   }
                 }}
                 className="mt-0.5 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-300"
@@ -348,39 +501,66 @@ export function MonitorForm({
             </label>
 
             {state.receivePullRequests ? (
-              <>
-                <Select
-                  label="GitHub Token"
-                  value={state.selectedGithubTokenId}
-                  onChange={(event) => updateField("selectedGithubTokenId", event.target.value)}
-                  disabled={
-                    githubTokens.length === 0 || Boolean(state.newGithubTokenAccessToken.trim())
-                  }
-                >
-                  <option value="">
-                    {githubTokens.length === 0
-                      ? "No active token available"
-                      : "Select an existing token"}
-                  </option>
-                  {githubTokens.map((token) => (
-                    <option key={token.id} value={token.id}>
-                      ****...{token.token_last4}
-                    </option>
-                  ))}
-                </Select>
+              <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <p className="text-sm font-semibold text-slate-800">GitHub Token Configuration</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Button
+                    type="button"
+                    variant={state.githubTokenMode === "existing" ? "primary" : "secondary"}
+                    onClick={() => {
+                      updateField("githubTokenMode", "existing");
+                      setNewGithubAccessToken("");
+                    }}
+                    className="w-full"
+                  >
+                    Attach Existing
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={state.githubTokenMode === "new" ? "primary" : "secondary"}
+                    onClick={() => updateField("githubTokenMode", "new")}
+                    className="w-full"
+                  >
+                    Create Token
+                  </Button>
+                </div>
 
-                <Input
-                  label="Or Create New GitHub Token"
-                  type="password"
-                  value={state.newGithubTokenAccessToken}
-                  onChange={(event) =>
-                    updateField("newGithubTokenAccessToken", event.target.value)
-                  }
-                  placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                  autoComplete="off"
-                  disabled={Boolean(state.selectedGithubTokenId)}
-                />
-              </>
+                {state.githubTokenMode === "existing" ? (
+                  <Select
+                    label="Available GitHub Tokens"
+                    value={state.selectedGithubTokenId}
+                    onChange={(event) => updateField("selectedGithubTokenId", event.target.value)}
+                  >
+                    <option value="">
+                      {githubTokens.length === 0 ? "No active token available" : "Select a token"}
+                    </option>
+                    {githubTokens.map((token) => (
+                      <option key={token.id} value={token.id}>
+                        ****...{token.token_last4}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+                    <Input
+                      label="New GitHub Token"
+                      type="password"
+                      value={newGithubAccessToken}
+                      onChange={(event) => setNewGithubAccessToken(event.target.value)}
+                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                      autoComplete="off"
+                    />
+                    <Button
+                      type="button"
+                      loading={isCreatingGithubToken}
+                      disabled={isSubmitting || !newGithubAccessToken.trim()}
+                      onClick={() => void handleCreateGithubToken()}
+                    >
+                      Create Token
+                    </Button>
+                  </div>
+                )}
+              </div>
             ) : null}
           </>
         ) : null}
@@ -426,12 +606,14 @@ export function MonitorForm({
           placeholder='{"Authorization": "Bearer token"}'
         />
 
-        <Textarea
-          label="Request Body (JSON, optional)"
-          value={state.requestBody}
-          onChange={(event) => updateField("requestBody", event.target.value)}
-          placeholder='{"key": "value"}'
-        />
+        {["POST", "PUT", "PATCH"].includes(state.method) ? (
+          <Textarea
+            label="Request Body (JSON, optional)"
+            value={state.requestBody}
+            onChange={(event) => updateField("requestBody", event.target.value)}
+            placeholder='{"key": "value"}'
+          />
+        ) : null}
 
         {mode === "create" ? (
           <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-sm font-medium text-slate-700">

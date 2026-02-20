@@ -248,6 +248,7 @@ export default function MonitorDetailsPage() {
     () => githubTokens.find((item) => item.id === linkedGithubTokenId) ?? null,
     [githubTokens, linkedGithubTokenId],
   );
+  const hasLinkedWebhook = monitorWebhooks.length > 0;
 
   const linkedTokenLabel = currentlyLinkedGithubToken
     ? maskGithubToken(currentlyLinkedGithubToken.token_last4)
@@ -285,6 +286,14 @@ export default function MonitorDetailsPage() {
       event.preventDefault();
 
       if (!token || !monitorId) {
+        return;
+      }
+
+      if (hasLinkedWebhook) {
+        setFeedback({
+          tone: "error",
+          message: "Only one webhook can be linked to a monitor. Remove the current webhook first.",
+        });
         return;
       }
 
@@ -332,11 +341,19 @@ export default function MonitorDetailsPage() {
         setIsCreatingWebhook(false);
       }
     },
-    [handleAuthError, loadData, monitorId, newWebhookProvider, newWebhookUrl, token],
+    [handleAuthError, hasLinkedWebhook, loadData, monitorId, newWebhookProvider, newWebhookUrl, token],
   );
 
   const handleAttachWebhook = useCallback(async () => {
     if (!token || !monitorId) {
+      return;
+    }
+
+    if (hasLinkedWebhook) {
+      setFeedback({
+        tone: "error",
+        message: "Only one webhook can be linked to a monitor. Remove the current webhook first.",
+      });
       return;
     }
 
@@ -362,7 +379,7 @@ export default function MonitorDetailsPage() {
     } finally {
       setIsAttachingWebhook(false);
     }
-  }, [handleAuthError, loadData, monitorId, selectedWebhookId, token]);
+  }, [handleAuthError, hasLinkedWebhook, loadData, monitorId, selectedWebhookId, token]);
 
   const handleRemoveWebhook = useCallback(
     async (webhookId: string) => {
@@ -403,6 +420,14 @@ export default function MonitorDetailsPage() {
       return;
     }
 
+    if (linkedGithubTokenId && linkedGithubTokenId !== selectedGithubTokenId) {
+      setFeedback({
+        tone: "error",
+        message: "Only one GitHub token can be linked to a monitor. Unlink the current token first.",
+      });
+      return;
+    }
+
     setFeedback(null);
 
     try {
@@ -421,6 +446,7 @@ export default function MonitorDetailsPage() {
     handleAuthError,
     linkTokenToMonitor,
     loadData,
+    linkedGithubTokenId,
     monitorId,
     selectedGithubTokenId,
     token,
@@ -660,12 +686,14 @@ export default function MonitorDetailsPage() {
               label="Available GitHub tokens"
               value={selectedGithubTokenId}
               onChange={(event) => setSelectedGithubTokenId(event.target.value)}
-              disabled={activeGithubTokens.length === 0}
+              disabled={activeGithubTokens.length === 0 || Boolean(linkedGithubTokenId)}
             >
               <option value="">
                 {activeGithubTokens.length === 0
                   ? "No active token available"
-                  : "Select a GitHub token"}
+                  : linkedGithubTokenId
+                    ? "A token is already linked"
+                    : "Select a GitHub token"}
               </option>
               {activeGithubTokens.map((tokenItem) => (
                 <option key={tokenItem.id} value={tokenItem.id}>
@@ -678,7 +706,11 @@ export default function MonitorDetailsPage() {
               variant="secondary"
               onClick={() => void handleLinkGithubToken()}
               loading={isLinkingGithubToken}
-              disabled={!selectedGithubTokenId || activeGithubTokens.length === 0}
+              disabled={
+                !selectedGithubTokenId ||
+                activeGithubTokens.length === 0 ||
+                Boolean(linkedGithubTokenId)
+              }
               className="w-full sm:w-auto"
             >
               Link Token
@@ -766,11 +798,22 @@ export default function MonitorDetailsPage() {
               placeholder="https://hooks.slack.com/services/XXX/YYY/ZZZ"
               value={newWebhookUrl}
               onChange={(event) => setNewWebhookUrl(event.target.value)}
+              disabled={hasLinkedWebhook}
               required
             />
-            <Button type="submit" loading={isCreatingWebhook} className="w-full sm:w-auto">
+            <Button
+              type="submit"
+              loading={isCreatingWebhook}
+              disabled={hasLinkedWebhook}
+              className="w-full sm:w-auto"
+            >
               Create + Attach
             </Button>
+            {hasLinkedWebhook ? (
+              <p className="text-sm text-slate-600">
+                This monitor already has a webhook linked. Remove it before attaching another one.
+              </p>
+            ) : null}
           </form>
 
           <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
@@ -779,10 +822,12 @@ export default function MonitorDetailsPage() {
               label="Active user webhooks"
               value={selectedWebhookId}
               onChange={(event) => setSelectedWebhookId(event.target.value)}
-              disabled={attachableWebhooks.length === 0}
+              disabled={attachableWebhooks.length === 0 || hasLinkedWebhook}
             >
               <option value="">
-                {attachableWebhooks.length === 0
+                {hasLinkedWebhook
+                  ? "A webhook is already linked"
+                  : attachableWebhooks.length === 0
                   ? "No webhook available to attach"
                   : "Select a webhook"}
               </option>
@@ -796,7 +841,7 @@ export default function MonitorDetailsPage() {
               variant="secondary"
               onClick={() => void handleAttachWebhook()}
               loading={isAttachingWebhook}
-              disabled={!selectedWebhookId || attachableWebhooks.length === 0}
+              disabled={!selectedWebhookId || attachableWebhooks.length === 0 || hasLinkedWebhook}
               className="w-full sm:w-auto"
             >
               Attach Selected Webhook

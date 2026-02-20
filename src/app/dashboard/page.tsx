@@ -19,7 +19,7 @@ import {
 } from "@/lib/api/monitor";
 import { addWebhookToMonitor, createWebhook, listUserWebhooks } from "@/lib/api/webhook";
 import { extractErrorMessage } from "@/lib/utils/error";
-import type { Monitor } from "@/types/api";
+import type { Monitor, UserWebhook } from "@/types/api";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -39,6 +39,7 @@ export default function DashboardPage() {
   } = useGithubTokenStore();
 
   const [monitors, setMonitors] = useState<Monitor[]>([]);
+  const [userWebhooks, setUserWebhooks] = useState<UserWebhook[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
@@ -102,12 +103,33 @@ export default function DashboardPage() {
     }
   }, [fetchGithubTokens, handleAuthError, token]);
 
+  const loadUserWebhooks = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+
+    try {
+      const data = await listUserWebhooks(token);
+      setUserWebhooks(data.filter((item) => item.is_active));
+    } catch (error) {
+      if (handleAuthError(error)) {
+        return;
+      }
+
+      setFeedback({
+        tone: "error",
+        message: extractErrorMessage(error),
+      });
+    }
+  }, [handleAuthError, token]);
+
   useEffect(() => {
     if (isReady && token) {
       void loadMonitors();
       void loadGithubTokens();
+      void loadUserWebhooks();
     }
-  }, [isReady, loadGithubTokens, loadMonitors, token]);
+  }, [isReady, loadGithubTokens, loadMonitors, loadUserWebhooks, token]);
 
   const monitorStats = useMemo(() => {
     return monitors.reduce(
@@ -172,53 +194,40 @@ export default function DashboardPage() {
       setFeedback(null);
 
       try {
-        const normalizedWebhookUrl = payload.webhook.webhook_url.trim();
-        const existingWebhooks = await listUserWebhooks(token);
+        let webhookIdToAttach = payload.webhookId;
+        if (!webhookIdToAttach) {
+          if (!payload.webhook) {
+            throw new Error("Webhook is required when creating a monitor.");
+          }
 
-        const matchedWebhook = existingWebhooks.find(
-          (webhook) =>
-            webhook.provider === payload.webhook.provider &&
-            webhook.webhook_url.trim() === normalizedWebhookUrl,
-        );
+          const normalizedWebhookUrl = payload.webhook.webhook_url.trim();
+          const existingWebhooks = await listUserWebhooks(token);
 
-        const webhook =
-          matchedWebhook ??
-          (await createWebhook(token, {
-            provider: payload.webhook.provider,
-            webhook_url: normalizedWebhookUrl,
-          }));
+          const matchedWebhook = existingWebhooks.find(
+            (webhook) =>
+              webhook.provider === payload.webhook?.provider &&
+              webhook.webhook_url.trim() === normalizedWebhookUrl,
+          );
+
+          const webhook =
+            matchedWebhook ??
+            (await createWebhook(token, {
+              provider: payload.webhook.provider,
+              webhook_url: normalizedWebhookUrl,
+            }));
+          webhookIdToAttach = webhook.id;
+        }
 
         const monitor = await createMonitor(token, payload.monitor);
 
         try {
-          await addWebhookToMonitor(token, monitor.id, webhook.id);
+          await addWebhookToMonitor(token, monitor.id, webhookIdToAttach);
         } catch (associationError) {
           await deleteMonitor(token, monitor.id).catch(() => undefined);
           throw associationError;
         }
 
-        let githubTokenIdToLink = payload.githubTokenId;
-
-        if (payload.newGithubTokenAccessToken) {
-          try {
-            const createdGithubToken = await createGithubToken(token, {
-              access_token: payload.newGithubTokenAccessToken,
-            });
-            githubTokenIdToLink = createdGithubToken.id;
-            await loadGithubTokens();
-          } catch (tokenCreationError) {
-            if (handleAuthError(tokenCreationError)) {
-              return;
-            }
-
-            setFeedback({
-              tone: "error",
-              message: `Monitor created, but GitHub token creation failed: ${extractErrorMessage(tokenCreationError)}`,
-            });
-            await loadMonitors();
-            return;
-          }
-        }
+        const githubTokenIdToLink = payload.githubTokenId;
 
         if (githubTokenIdToLink) {
           try {
@@ -244,6 +253,7 @@ export default function DashboardPage() {
             : "Monitor created successfully.",
         });
         await loadMonitors();
+        await loadUserWebhooks();
       } catch (error) {
         if (handleAuthError(error)) {
           return;
@@ -258,13 +268,50 @@ export default function DashboardPage() {
       }
     },
     [
-      createGithubToken,
       handleAuthError,
       linkTokenToMonitor,
-      loadGithubTokens,
       loadMonitors,
+      loadUserWebhooks,
       token,
     ],
+  );
+
+  const handleCreateGithubToken = useCallback(
+    async (accessToken: string) => {
+      if (!token) {
+        throw new Error("Authentication required.");
+      }
+
+      const createdGithubToken = await createGithubToken(token, { access_token: accessToken });
+      await loadGithubTokens();
+      return createdGithubToken;
+    },
+    [createGithubToken, loadGithubTokens, token],
+  );
+
+  const handleCreateWebhook = useCallback(
+    async (provider: "slack" | "discord", webhookUrl: string) => {
+      if (!token) {
+        throw new Error("Authentication required.");
+      }
+
+      const normalizedWebhookUrl = webhookUrl.trim();
+      const existingWebhooks = await listUserWebhooks(token);
+      const matchedWebhook = existingWebhooks.find(
+        (item) => item.provider === provider && item.webhook_url.trim() === normalizedWebhookUrl,
+      );
+
+      const webhook =
+        matchedWebhook ??
+        (await createWebhook(token, {
+          provider,
+          webhook_url: normalizedWebhookUrl,
+        }));
+
+      await loadUserWebhooks();
+      return webhook;
+    },
+    [loadUserWebhooks, token],
   );
 
   if (!isReady) {
@@ -284,7 +331,7 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-xl font-semibold text-slate-900">Create monitor</h2>
               <p className="text-sm text-slate-600">
-                A webhook is required when creating a monitor. You can also link an existing GitHub token or create one inline.
+                Create and attach a new webhook or attach an existing one, and optionally link a GitHub token.
               </p>
             </div>
           </div>
@@ -294,6 +341,9 @@ export default function DashboardPage() {
             onSubmit={handleCreate}
             isSubmitting={isCreating}
             githubTokens={activeGithubTokens}
+            userWebhooks={userWebhooks}
+            onCreateGithubToken={handleCreateGithubToken}
+            onCreateWebhook={handleCreateWebhook}
           />
         </section>
 
@@ -328,6 +378,7 @@ export default function DashboardPage() {
             onClick={() => {
               void loadMonitors();
               void loadGithubTokens();
+              void loadUserWebhooks();
             }}
             loading={isLoading}
             className="w-full sm:w-auto"
