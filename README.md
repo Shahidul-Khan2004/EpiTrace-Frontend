@@ -2,6 +2,12 @@
 
 A production-style monitoring dashboard built with Next.js App Router and TypeScript.
 
+## 🚀 Live Demo
+
+### https://epi-trace-frontend-bid2hw0wm-shahidul-khan2004s-projects.vercel.app
+
+[Open the live app](https://epi-trace-frontend-bid2hw0wm-shahidul-khan2004s-projects.vercel.app)
+
 It integrates with the EpiTrace backend to provide:
 - authentication (register/login)
 - monitor lifecycle management
