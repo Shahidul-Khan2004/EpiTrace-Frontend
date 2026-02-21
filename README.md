@@ -1,110 +1,190 @@
 # EpiTrace Frontend
 
-Modern Next.js + Tailwind frontend for the EpiTrace backend APIs.
+A production-style monitoring dashboard built with Next.js App Router and TypeScript.
 
-## What I implemented
+It integrates with the EpiTrace backend to provide:
+- authentication (register/login)
+- monitor lifecycle management
+- webhook management and monitor associations
+- GitHub token management and monitor associations
+- live code-worker log streaming
 
-- Created a standalone frontend app in `EpiTrace-Frontend/` with App Router and TypeScript.
-- Added Tailwind CSS setup using the current PostCSS plugin flow.
-- Built complete auth flow:
-  - Register page (default entry)
-  - Login page with link switching
-  - Local session storage + protected routes
-- Built monitor management flow:
-  - Create monitor
-  - List all monitors
-  - Start, pause, resume, delete monitor
-  - View monitor details
-  - Update monitor
-  - View monitor history report
-  - Manage user webhooks and link/unlink them per monitor
-- Added backend health indicator using `/health`.
-- Implemented reusable, modular architecture:
-  - Shared API client with centralized error handling
-  - Feature hooks for auth guards/forms
-  - Reusable UI components (button, inputs, alerts, badges)
-  - Reusable monitor components (form, actions, card, history table)
+## Tech Stack
 
-## Endpoint coverage
+- Next.js 15 (App Router)
+- React 19 + TypeScript
+- Tailwind CSS 4
+- `clsx` + `tailwind-merge`
+- `framer-motion` + `gsap` (landing page motion effects)
 
-All endpoints from `EPITRACE.postman_collection.json` are wired in UI:
+## Prerequisites
 
-- `GET /health` -> health indicator (`BackendHealth`)
-- `POST /auth/register` -> register page
-- `POST /auth/login` -> login page
-- `POST /monitor/create` -> create monitor form
-- `GET /monitor` -> dashboard monitor list
-- `GET /monitor/:id` -> monitor detail page
-- `PATCH /monitor/:id` -> update monitor form
-- `DELETE /monitor/:id` -> delete actions (dashboard/detail)
-- `POST /monitor/start/:id` -> start action
-- `POST /monitor/pause/:id` -> pause action
-- `POST /monitor/resume/:id` -> resume action
-- `GET /monitor/:id/history` -> monitor history report
-- `POST /webhook` -> create webhook
-- `GET /webhook` -> list user webhooks
-- `GET /webhook/monitor/:monitorId` -> list monitor webhooks
-- `POST /webhook/monitor/:monitorId/add/:webhookId` -> attach webhook to monitor
-- `DELETE /webhook/monitor/:monitorId/remove/:webhookId` -> remove webhook from monitor
+- Node.js 20+ (recommended)
+- npm 10+
+- Running EpiTrace backend API
 
-## Tech stack
+## Quick Start
 
-- Next.js (App Router)
-- React + TypeScript
-- Tailwind CSS
-- `clsx` + `tailwind-merge` for class composition
-
-## Setup
-
-1. Go to the frontend folder:
+1. Install dependencies:
 
 ```bash
-cd EpiTrace-Frontend
+npm install
 ```
 
-2. Create environment file:
+2. Create local environment file:
 
 ```bash
 cp .env.example .env.local
 ```
 
-3. Update API URL if needed:
+3. Start development server:
+
+```bash
+npm run dev
+```
+
+4. Open:
+
+```text
+http://localhost:3000
+```
+
+## Environment Variables
+
+Copy from `.env.example`:
 
 ```env
 EPITRACE_BACKEND_URL=http://localhost:8080
 NEXT_PUBLIC_API_PROXY_BASE=/api/backend
 ```
 
-4. Install and run:
+### Variables
 
-```bash
-npm install
-npm run dev
+- `EPITRACE_BACKEND_URL`
+  - Backend base URL used by Next.js rewrite rules.
+  - Default: `http://localhost:8080`
+
+- `NEXT_PUBLIC_API_PROXY_BASE`
+  - Client-side API base path used by the shared API client.
+  - Must match rewrite source prefix in `next.config.ts`.
+  - Default: `/api/backend`
+
+## Available Scripts
+
+- `npm run dev` — start local dev server
+- `npm run build` — create production build
+- `npm run start` — serve production build
+- `npm run lint` — run Next.js ESLint checks
+
+## Route Map
+
+- `/` — marketing/landing page
+- `/register` — user registration
+- `/login` — user login
+- `/dashboard` — monitor list, create monitor, quick monitor actions
+- `/monitors/[id]` — monitor details, history, webhook/token associations
+- `/monitors/[id]/live-logs` — live code-worker stream viewer (SSE)
+- `/settings/github-tokens` — create/update/delete/activate GitHub tokens
+- `/settings/webhooks` — create/update/delete/activate webhooks
+
+## Authentication Behavior
+
+- Session is stored in browser storage.
+- Protected pages require a valid token and redirect unauthenticated users to `/register`.
+- Auth pages (`/login`, `/register`) redirect authenticated users to `/dashboard`.
+- API `401` responses trigger logout and redirect to login/register flow.
+
+## Backend API Coverage
+
+The UI is wired to these backend endpoints via `/api/backend/*` rewrite proxy:
+
+### Health
+
+- `GET /health`
+
+### Auth
+
+- `POST /auth/register`
+- `POST /auth/login`
+
+### Monitors
+
+- `POST /monitor/create`
+- `GET /monitor`
+- `GET /monitor/:id`
+- `PATCH /monitor/:id`
+- `DELETE /monitor/:id`
+- `POST /monitor/start/:id`
+- `POST /monitor/pause/:id`
+- `POST /monitor/resume/:id`
+- `GET /monitor/:id/history`
+
+### Webhooks
+
+- `POST /webhook`
+- `GET /webhook`
+- `PATCH /webhook/:webhookId`
+- `DELETE /webhook/:webhookId`
+- `GET /webhook/monitor/:monitorId`
+- `POST /webhook/monitor/:monitorId/add/:webhookId`
+- `DELETE /webhook/monitor/:monitorId/remove/:webhookId`
+
+### GitHub Tokens
+
+- `POST /github-token`
+- `GET /github-token`
+- `GET /github-token/:tokenId`
+- `PATCH /github-token/:tokenId`
+- `DELETE /github-token/:tokenId`
+- `GET /github-token/monitor/:monitorId`
+- `POST /github-token/monitor/:monitorId/add/:tokenId`
+- `DELETE /github-token/monitor/:monitorId/remove/:tokenId`
+
+### Live Logs (SSE)
+
+- `GET /logs/code-worker/stream`
+- Optional query: `jobId`
+
+## Project Structure
+
+```text
+src/
+  app/                    # Next.js routes
+  components/             # Reusable UI and feature components
+  features/               # Feature-level hooks/state logic
+  lib/
+    api/                  # Backend API wrappers
+    auth/                 # Session storage utilities
+    config/               # Environment config helpers
+    utils/                # Shared helpers
+  types/                  # API and domain types
 ```
 
-5. Open:
+## Architecture Notes
 
-- `http://localhost:3000/register`
+- API calls are centralized in `src/lib/api/*` using a shared `apiRequest` client.
+- Route pages in `src/app/*` orchestrate UI state and call feature/API modules.
+- Presentational and form primitives are isolated in `src/components/*`.
+- Errors are normalized and surfaced through consistent feedback components.
 
-## Architecture notes
+## Troubleshooting
 
-- `src/lib/api/*`: transport and endpoint functions only.
-- `src/lib/auth/*`: storage/session utilities only.
-- `src/features/*`: behavior/state hooks.
-- `src/components/*`: presentational and reusable UI blocks.
-- `src/app/*`: route pages that compose features + components.
-- `next.config.ts`: backend rewrite proxy configuration.
+- **Backend unreachable**
+  - Verify `EPITRACE_BACKEND_URL` in `.env.local`.
+  - Confirm backend is running and accessible from your machine.
 
-This separation keeps API changes, UI tweaks, and behavior logic isolated for easier maintenance.
+- **API calls fail from browser**
+  - Ensure `NEXT_PUBLIC_API_PROXY_BASE` matches rewrite source (`/api/backend`).
+  - Restart dev server after changing environment variables.
 
-## Notes
+- **Frequent auth redirects**
+  - Token may be expired/invalid; log in again.
+  - Confirm backend auth endpoints return expected token payload.
 
-- Backend (`server/`) was treated as read-only.
-- Frontend uses a same-origin Next.js rewrite proxy (`/api/backend/*`) to avoid browser CORS issues.
-- Frontend expects backend JWT auth (`Authorization: Bearer <token>`) for monitor routes.
+- **Live logs not connecting**
+  - Confirm backend exposes `/logs/code-worker/stream` with SSE enabled.
+  - Check URL and optional `jobId` in the live logs page controls.
 
-## Docs used
+## License
 
-- Next.js App Router docs: https://nextjs.org/docs/app
-- Next.js Tailwind guide: https://nextjs.org/docs/app/guides/tailwind-css
-- Tailwind Next.js guide: https://tailwindcss.com/docs/installation/framework-guides/nextjs
+See [LICENSE](LICENSE).
